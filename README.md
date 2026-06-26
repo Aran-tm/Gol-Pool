@@ -1,102 +1,142 @@
-# ⚽ GolPool — Group Sweepstake for the World Cup
+<div align="center">
 
-> Real-time World Cup sweepstake. Create a pool with friends, get teams assigned, and watch the leaderboard update **live** as goals happen — powered by **TxLINE** real-time data. Sign in with **Solana**.
+# ⚽ GolPool
 
-**Hackathon:** TxODDS — Consumer & Fan Experiences (World Cup Track) · Superteam Earn
-**Deadline:** 2026-07-19 23:59 UTC
+### The live World Cup sweepstake that scores itself.
+
+Create a pool with friends → get teams assigned → watch the leaderboard update **live** as goals happen.
+Powered by **TxLINE** real-time data · Sign in with **Solana**.
+
+`React + TypeScript + Vite` · `Tailwind` · `Supabase` · `Solana` · `TxLINE`
+
+**Hackathon:** TxODDS — Consumer & Fan Experiences (World Cup Track) · **Deadline:** 2026-07-19
+
+</div>
 
 ---
 
-## 🎯 The idea (one sentence)
-Friends join a pool, each is randomly assigned World Cup teams, and the leaderboard updates **automatically in real time** from live match data — no more manual spreadsheets.
+## 🎯 The idea
+Friends join a pool, each is randomly assigned World Cup teams, and the leaderboard updates **automatically in real time** from live match data — no more manual spreadsheets. Every goal moves the table.
 
-## 🧩 Why this wins (mapped to judging criteria)
-| Criterion | How GolPool nails it |
-|-----------|----------------------|
-| **Fan Accessibility & UX** | Mobile-first, 10-second onboarding, zero jargon. Your mom could use it. |
-| **Real-Time Responsiveness** | Goal on the pitch → score + leaderboard animate in <2s via TxLINE + Supabase Realtime. |
-| **Originality & Value** | Turns passive watching into a live social competition across all 104 games. |
-| **Commercial / Monetization** | Entry-fee pools with on-chain prize pots (rake), premium pools, sponsored pools, cosmetics. |
-| **Completeness & Execution** | End-to-end: wallet sign-in → create/join pool → live scoring → shareable result. |
+---
+
+## 📊 Project status (live guide)
+
+### ✅ Done
+- [x] Project scaffold — React + TS + Vite + Tailwind
+- [x] **Solana sign-up** — Phantom wallet adapter + in-app TxLINE subscription (on-chain)
+- [x] **TxLINE access** — on-chain subscription + API token activated (free real-time tier, service level 12)
+- [x] **TxLINE client** — fixtures, score snapshots, SSE types (`src/lib/txline.ts`)
+- [x] World Cup data confirmed — `competitionId = 72`, 19 live fixtures synced
+- [x] **Supabase** — schema (7 tables), RLS policies, Realtime enabled
+- [x] **Ingestion worker** — syncs fixtures + polls live scores → Supabase (`worker/ingest.ts`)
+- [x] **App** — wallet sign-in, create/join pool, random team assignment, **live leaderboard** with Realtime
+- [x] Scoring engine — +2 goal / +3 win / +1 draw / +2 clean sheet (`src/lib/scoring.ts`)
+
+### 🚧 In progress
+- [ ] **Premium UI/UX overhaul** — framer-motion animations, animated SVGs, unique brand design
+- [ ] App icon / favicon ✅ (updated)
+
+### ⬜ To do (to win)
+- [ ] **Demo replay mode** — replay a finished match so the leaderboard moves live on camera (matches end before judging)
+- [ ] **Country flags & team visuals** in the leaderboard
+- [ ] **Goal celebration** animations (confetti + toast when your team scores)
+- [ ] **Deploy to Vercel** (public link — submission requirement)
+- [ ] **Host the worker** (Railway/Render) or run locally during the demo
+- [ ] **On-chain entry fees / prize pot** (monetization differentiator — optional but strong)
+- [ ] **Demo video ≤5 min** (absolute requirement)
+- [ ] **Technical documentation** for submission (idea, highlights, endpoints, TxLINE feedback)
+- [ ] Polish — loading/empty/error states, even team distribution, all 104 fixtures
+- [ ] Harden RLS before any public launch
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-┌────────────────────────────────────────────────────────────┐
-│  Browser (React + TS + Vite + Tailwind, mobile-first PWA)   │
-│  • Solana Wallet Adapter (Phantom) for sign-in              │
-│  • Supabase Realtime subscription → live leaderboard        │
-└───────────────▲───────────────────────────┬────────────────┘
-                │ realtime push              │ REST/RPC
-                │                            ▼
-┌───────────────┴────────────────────────────────────────────┐
-│  Supabase (Postgres + Auth + Realtime)                      │
-│  • pools, members, team_assignments, matches, events, scores│
-└───────────────▲─────────────────────────────────────────────┘
-                │ writes match state + events
-┌───────────────┴────────────────────────────────────────────┐
-│  Ingestion worker (Node) — polls TxLINE live feeds          │
-│  • normalizes scores/events → upserts to Supabase           │
-│  • recomputes pool scores → Realtime broadcast              │
-└───────────────▲────────────────────────────────────────────┘
+┌───────────────────────────────────────────────┐
+│  Browser — React + TS + Vite + Tailwind        │
+│  • Phantom (Solana) sign-in                     │
+│  • Supabase Realtime → live leaderboard         │
+└───────────────▲─────────────────┬──────────────┘
+                │ realtime push    │ REST
+                │                  ▼
+┌───────────────┴──────────────────────────────────┐
+│  Supabase (Postgres + Realtime)                   │
+│  pools · pool_members · team_assignments ·        │
+│  matches · match_events · score_log · profiles    │
+└───────────────▲───────────────────────────────────┘
+                │ writes match state + goal events
+┌───────────────┴──────────────────────────────────┐
+│  Ingestion worker (Node/tsx) — worker/ingest.ts   │
+│  polls TxLINE → upserts matches → goal events     │
+└───────────────▲───────────────────────────────────┘
                 │ live World Cup data
             ┌───┴────┐
-            │ TxLINE │  (live scores, odds, match events — 104 games)
+            │ TxLINE │  scores · fixtures · odds (104 games)
             └────────┘
 ```
 
-## 🧮 Scoring model (v1 — tunable)
-Each member owns N assigned teams. Points accrue live:
-- **Goal scored** by your team: **+2** (live, the exciting moment)
-- **Match win**: **+3** · **Draw**: **+1**
-- **Clean sheet**: **+2**
-- **Knockout progression** bonus: Round of 16 +5, QF +8, SF +13, Final +21, Champion +34
-- Optional odds twist: underdog wins (high pre-match odds) → bonus multiplier (uses TxLINE odds = unique data angle)
+## 🧮 Scoring (`src/lib/scoring.ts`)
+Per assigned team, accruing live:
+- **Goal scored:** +2 (live — the exciting moment)
+- **Win:** +3 · **Draw:** +1 (on full-time)
+- **Clean sheet:** +2 (on full-time)
 
-## 🗄️ Data model (Supabase)
-- `profiles` — wallet_address (PK), display_name, avatar
-- `pools` — id, name, owner_wallet, entry_fee, status, created_at
-- `pool_members` — pool_id, wallet_address, joined_at, total_points
-- `team_assignments` — pool_id, wallet_address, team_id
-- `matches` — txline_match_id, home_team, away_team, status, home_score, away_score, kickoff, stage
-- `match_events` — match_id, type (goal/red_card/...), team_id, minute, payload
-- `score_log` — pool_id, wallet_address, match_id, points, reason, created_at (audit trail / live feed)
+## 🔌 TxLINE endpoints used
+- `POST /auth/guest/start` — guest JWT
+- on-chain `subscribe(serviceLevel, weeks)` + `POST /api/token/activate` — API token
+- `GET /api/fixtures/snapshot?competitionId=72` — World Cup matches
+- `GET /api/scores/snapshot/{fixtureId}` — current/historical score
+- `GET /api/scores/stream` — real-time SSE (next: wire into worker)
 
-## 🔌 TxLINE endpoints (confirmed)
-**Auth (2-token):** `POST /auth/guest/start` → guest JWT · on-chain `subscribe(serviceLevel, weeks)` (free tier **12** = real-time) · `POST /api/token/activate` → long-lived API token. Every data call sends `Authorization: Bearer {jwt}` + `X-Api-Token: {apiToken}`.
-- `GET /api/fixtures/snapshot?startEpochDay&competitionId` — the World Cup matches
-- `GET /api/scores/stream?fixtureId` — **real-time SSE** score updates (drives the live leaderboard)
-- `GET /api/scores/snapshot/{fixtureId}?asOf` — current / historical score snapshot
-- `GET /api/odds/stream` — real-time SSE odds (underdog-bonus mechanic)
-> Soccer score schema: per-participant periods `H1/HT/H2/ET1/ET2/PE/ETTotal/Total`, each `{Goals,YellowCards,RedCards,Corners}`. `gameState` 1-19 (2/4 = live, 5 = finished).
-> Quickstart: https://txline.txodds.com/documentation/quickstart · World Cup: https://txline.txodds.com/documentation/worldcup
-
-## 💰 Monetization path
-1. **On-chain prize pools** — members pay an entry fee (devnet USDC/SOL); winner takes pot; platform rake %.
-2. **Premium pools** — more teams per player, advanced stats, custom scoring.
-3. **Sponsored pools** — brands host branded pools with rewards.
-4. **Cosmetics** — avatars, pool themes, celebration animations.
+## 💰 Monetization
+On-chain entry-fee pools (winner takes pot, platform rake) · premium pools (more teams, custom scoring) · sponsored/branded pools · cosmetics.
 
 ---
 
-## 🧱 Tech stack
-- **Frontend:** React 19 + TypeScript + Vite + Tailwind CSS
-- **Auth/identity:** Solana Wallet Adapter (Phantom) + Supabase
-- **Backend:** Supabase (Postgres, Auth, Realtime)
-- **Data:** TxLINE live API (ingestion worker)
-- **Deploy:** Vercel (frontend) — `*.vercel.app` link (no custom domain required)
+## 🚀 Local setup
 
-## 🗓️ Roadmap (23 days)
-- **Week 1 (Jun 26 – Jul 2):** TxLINE API exploration, Supabase schema, wallet sign-in, base mobile UI.
-- **Week 2 (Jul 3 – Jul 9):** Pool create/join, team assignment, ingestion worker, live leaderboard.
-- **Week 3 (Jul 10 – Jul 16):** Deploy to Vercel, on-chain entry fee (devnet), polish UX, record demo video.
-- **Week 4 (Jul 17 – Jul 19):** Test against live data, performance, write docs + feedback, **submit**.
-
-## 🚀 Dev
 ```bash
 npm install
-npm run dev
 ```
-Env vars (`.env.local`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SOLANA_NETWORK`, `TXLINE_API_KEY` (worker only).
+
+Create `.env.local` (see `.env.example`):
+```
+TXLINE_NETWORK=mainnet
+TXLINE_API_TOKEN=...          # from the in-app Setup flow
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=...
+SUPABASE_URL=...
+SUPABASE_SERVICE_ROLE_KEY=... # worker only
+```
+
+1. **Supabase:** run `supabase/schema.sql` then `supabase/policies.sql` in the SQL Editor.
+2. **Get the TxLINE token:** `npm run dev` → open the app → ⚙️ Setup → connect Phantom → subscribe + activate.
+3. **Populate live data:** `npm run txline:ingest -- --watch`
+4. **Run the app:** `npm run dev`
+
+### Scripts
+| Script | Purpose |
+|--------|---------|
+| `npm run dev` | Vite dev server |
+| `npm run build` | Production build |
+| `npm run txline:fixtures` | List World Cup fixtures + competitionId |
+| `npm run txline:scores` | Show current state/score of every match |
+| `npm run txline:ingest [-- --watch]` | Sync matches + live scores → Supabase |
+
+## 📁 Structure
+```
+golpool/
+├── src/
+│   ├── lib/        txline.ts · supabase.ts · subscribe.ts · api.ts · scoring.ts · txlineConfig.ts
+│   ├── pages/      Setup.tsx · Pools.tsx · PoolDetail.tsx
+│   ├── solana/     WalletContext.tsx
+│   └── App.tsx
+├── worker/         subscribe · fixtures · scores · ingest · activate (helpers)
+├── supabase/       schema.sql · policies.sql
+└── public/         favicon.svg
+```
+
+## 🗣️ TxLINE feedback (for submission)
+> Filled in as we build — what worked, where we hit friction (e.g. CORS from the browser, `StartTime` in ms vs the docs' seconds, plain-text token response).

@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.32.1",
+    "@fontsource-variable/space-grotesk": "^5.2.10",
     "@solana/spl-token": "^0.4.14",
     "@solana/wallet-adapter-base": "^0.9.27",
     "@solana/wallet-adapter-react": "^0.15.39",
@@ -23,13 +24,18 @@
     "@solana/web3.js": "^1.98.4",
     "@supabase/supabase-js": "^2.108.2",
     "bs58": "^6.0.0",
+    "canvas-confetti": "^1.9.4",
+    "clsx": "^2.1.1",
     "dotenv": "^17.4.2",
+    "framer-motion": "^12.42.0",
+    "lucide-react": "^1.21.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.0",
     "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
+    "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
