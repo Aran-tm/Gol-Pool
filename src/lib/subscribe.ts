@@ -168,9 +168,16 @@ async function activateToken(
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
     body: JSON.stringify({ txSig, walletSignature, leagues: SELECTED_LEAGUES }),
   });
-  if (!actRes.ok) throw new Error(`activate ${actRes.status}: ${await actRes.text()}`);
-  const actJson = await actRes.json();
-  const apiToken = (actJson.token ?? actJson) as string;
+  const rawBody = await actRes.text();
+  if (!actRes.ok) throw new Error(`activate ${actRes.status}: ${rawBody}`);
+  // The server may return the token as JSON ({token}) or as a plain-text string.
+  let apiToken: string;
+  try {
+    const j = JSON.parse(rawBody);
+    apiToken = (j.token ?? j) as string;
+  } catch {
+    apiToken = rawBody.trim();
+  }
 
   return { txSig, apiToken, jwt, walletAddress: wallet.publicKey.toBase58() };
 }

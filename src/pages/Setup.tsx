@@ -8,9 +8,11 @@ import {
 } from "../lib/subscribe";
 import { ACTIVE_NETWORK } from "../solana/WalletContext";
 
-// The user's already-successful subscription tx (finalized on-chain).
+// An un-used successful subscription tx (finalized on-chain). The first one
+// (44eNd…) was already consumed by a prior activation, so we use a fresh one.
+// Backups if needed: 4RzQZcWp… / 25X2ocPn…
 const KNOWN_TX_SIG =
-  "44eNdvCzJNZEJ1fWmQDPpdvG5qk64quPiv2NaXpmQwAW32Tudt7br3crur5QssWVaS8FzvgC3f5SSPr6Nny2hpQd";
+  "2W1JaCs3EhFWs8MjjhquJ9YQPArd8bBipK9UjT7jWd53afm9wVVjak3YVVRyVeP3WGGqr1MCUvo3KM3XexDCKSFY";
 
 export default function Setup({ onBack }: { onBack?: () => void }) {
   const { publicKey, sendTransaction, signMessage, connected } = useWallet();
