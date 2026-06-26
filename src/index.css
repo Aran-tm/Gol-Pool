@@ -4,7 +4,6 @@
 
 :root {
   color-scheme: dark;
-  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
 }
 
 html,
@@ -15,7 +14,72 @@ body,
 
 body {
   margin: 0;
-  background: radial-gradient(circle at top, #0b6e4f 0%, #0a0a0f 70%);
+  background-color: #04130d;
   color: #f5f5f7;
+  font-family: "Space Grotesk Variable", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+@layer components {
+  /* Frosted glass surface */
+  .glass {
+    @apply border border-white/10 bg-white/[0.04] backdrop-blur-xl;
+  }
+  .glass-strong {
+    @apply border border-white/10 bg-white/[0.07] backdrop-blur-2xl;
+  }
+  /* Gradient text — raw CSS to avoid @apply of a custom utility */
+  .text-gradient {
+    background-image: linear-gradient(110deg, #22c55e 0%, #ffd166 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* Primary CTA */
+  .btn-primary {
+    background-image: linear-gradient(110deg, #22c55e 0%, #ffd166 100%);
+    color: #0a0a0f;
+    box-shadow: 0 0 50px -12px rgba(34, 197, 94, 0.55);
+    @apply rounded-2xl px-6 py-3.5 font-bold transition hover:brightness-110
+      active:scale-[0.97] disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply rounded-2xl border border-white/15 bg-white/5 px-6 py-3.5 font-semibold
+      text-white transition hover:bg-white/10 active:scale-[0.97] disabled:opacity-50;
+  }
+  .field {
+    @apply w-full rounded-xl border border-white/10 bg-black/40 p-3.5 text-sm text-white
+      outline-none transition placeholder:text-white/30 focus:border-grass/60 focus:bg-black/60;
+  }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ── Solana wallet-adapter button → themed ───────────────────────── */
+.wallet-adapter-button {
+  background: linear-gradient(110deg, #22c55e 0%, #ffd166 100%) !important;
+  color: #0a0a0f !important;
+  font-family: "Space Grotesk Variable", sans-serif !important;
+  font-weight: 700 !important;
+  border-radius: 16px !important;
+  height: auto !important;
+  padding: 12px 20px !important;
+  transition: filter 0.2s ease, transform 0.1s ease !important;
+}
+.wallet-adapter-button:not([disabled]):hover {
+  filter: brightness(1.1) !important;
+}
+.wallet-adapter-button[disabled] {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+.wallet-adapter-modal-wrapper {
+  background: #0b1f17 !important;
 }
