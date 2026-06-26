@@ -54,12 +54,12 @@ export interface SubscribeResult {
   walletAddress: string;
 }
 
-/** Run the full subscribe → activate flow. Returns the long-lived API token. */
-export async function subscribeAndActivate(
+/** On-chain subscribe only. Returns the new tx signature. */
+async function doSubscribe(
   wallet: SubscribeWallet,
   network: Network,
   onStep?: (msg: string) => void,
-): Promise<SubscribeResult> {
+): Promise<string> {
   const step = (m: string) => onStep?.(m);
   const cfg = NETWORKS[network];
   const rpcUrl = import.meta.env.VITE_SOLANA_RPC || cfg.cluster;
@@ -138,7 +138,26 @@ export async function subscribeAndActivate(
     step("Confirmation slow — proceeding (tx may already be final)…");
   }
 
+  return txSig;
+}
+
+/** Run the full subscribe → activate flow. Returns the long-lived API token. */
+export async function subscribeAndActivate(
+  wallet: SubscribeWallet,
+  network: Network,
+  onStep?: (msg: string) => void,
+): Promise<SubscribeResult> {
+  const txSig = await doSubscribe(wallet, network, onStep);
   return activateToken(wallet, txSig, onStep);
+}
+
+/** Subscribe on-chain only (no activation). Returns the new tx signature. */
+export async function subscribeOnly(
+  wallet: SubscribeWallet,
+  network: Network,
+  onStep?: (msg: string) => void,
+): Promise<string> {
+  return doSubscribe(wallet, network, onStep);
 }
 
 interface SignerWallet {

@@ -2,17 +2,16 @@ import { useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import {
-  subscribeAndActivate,
+  subscribeOnly,
   activateOnly,
   type SubscribeResult,
 } from "../lib/subscribe";
 import { ACTIVE_NETWORK } from "../solana/WalletContext";
 import { SELECTED_LEAGUES } from "../lib/txlineConfig";
 
-// A fresh un-used subscription tx (finalized on-chain). 44eNd… and 2W1JaCs3… were
-// already consumed. Remaining backup: 25X2ocPn…
+// Last remaining un-used subscription tx. 44eNd… / 2W1JaCs3… / 4RzQ… were consumed.
 const KNOWN_TX_SIG =
-  "4RzQZcWpqjLwoFkNNQu6uKAfka7di6paKN6MUJi7LGohagXm5ywjgaiHZrLN9evSY8Sg4TXpTgbjjVry7UfmSSnd";
+  "25X2ocPnc9UcM4qX35y8WvmXmnrhRcwEoqJHb14CdfdmnLEkZ4XuXwfF9Jqu87FmEH16ZdVc5J2d84Lgan7Pp6Er";
 
 export default function Setup({ onBack }: { onBack?: () => void }) {
   const { publicKey, sendTransaction, signMessage, connected } = useWallet();
@@ -73,14 +72,16 @@ export default function Setup({ onBack }: { onBack?: () => void }) {
     setBusy(true);
     setError("");
     setResult(null);
+    setManualOut("");
     try {
-      const r = await subscribeAndActivate(
+      setStatus("Approve the subscription in Phantom…");
+      const newSig = await subscribeOnly(
         { publicKey, sendTransaction, signMessage },
         ACTIVE_NETWORK,
         setStatus,
       );
-      setResult(r);
-      setStatus("✅ Subscription active!");
+      setTxSig(newSig);
+      setStatus("✅ New subscription tx created. Now click 'Generate signature'.");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -122,8 +123,29 @@ export default function Setup({ onBack }: { onBack?: () => void }) {
 
           {!result && (
             <>
-              {/* Tx signature input (shared by both flows). */}
-              <div className="space-y-1 rounded-xl border border-white/10 bg-white/5 p-4">
+              {/* Step 1 — fresh on-chain subscription (no auto-activate). */}
+              <div className="space-y-2 rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="text-sm font-semibold">
+                  Step 1 — Get a subscription tx
+                </div>
+                <p className="text-xs text-white/60">
+                  Creates a fresh on-chain subscription (~$0.02) and fills the
+                  field below. Only needed because the earlier txs were used up.
+                </p>
+                <button
+                  onClick={runSubscribe}
+                  disabled={busy}
+                  className="w-full rounded-xl border border-white/20 bg-white/10 px-6 py-3 font-semibold transition active:scale-95 disabled:opacity-50"
+                >
+                  {busy ? "Working…" : "Subscribe (new tx)"}
+                </button>
+              </div>
+
+              {/* Step 2 — sign locally; Claude activates server-side (reliable). */}
+              <div className="space-y-2 rounded-xl border border-grass/40 bg-grass/5 p-4">
+                <div className="text-sm font-semibold text-grass">
+                  Step 2 — Generate signature
+                </div>
                 <label className="block text-xs text-white/60">
                   Subscription transaction signature
                 </label>
@@ -132,17 +154,6 @@ export default function Setup({ onBack }: { onBack?: () => void }) {
                   onChange={(e) => setTxSig(e.target.value)}
                   className="w-full rounded-lg border border-white/15 bg-black/30 p-2 font-mono text-[10px]"
                 />
-              </div>
-
-              {/* Plan B (reliable): sign locally, Claude activates server-side. */}
-              <div className="space-y-2 rounded-xl border border-grass/40 bg-grass/5 p-4">
-                <div className="text-sm font-semibold text-grass">
-                  ✅ Generate activation signature (recommended)
-                </div>
-                <p className="text-xs text-white/60">
-                  Signs locally in Phantom (free, no SOL). Copy the result and
-                  send it to Claude to finish activation.
-                </p>
                 <button
                   onClick={prepareManual}
                   disabled={busy}
@@ -169,10 +180,10 @@ export default function Setup({ onBack }: { onBack?: () => void }) {
                 )}
               </div>
 
-              {/* Alternative: direct browser activation (may hit flaky proxy). */}
+              {/* Fallback: direct browser activation (may hit flaky proxy). */}
               <details className="rounded-xl border border-white/10 bg-white/5 p-4">
                 <summary className="cursor-pointer text-sm text-white/70">
-                  Other options
+                  Advanced: activate directly in browser
                 </summary>
                 <button
                   onClick={runActivate}
@@ -180,13 +191,6 @@ export default function Setup({ onBack }: { onBack?: () => void }) {
                   className="mt-3 w-full rounded-xl border border-white/20 bg-white/5 px-6 py-3 font-semibold transition active:scale-95 disabled:opacity-50"
                 >
                   {busy ? "Working…" : "Activate directly (browser)"}
-                </button>
-                <button
-                  onClick={runSubscribe}
-                  disabled={busy}
-                  className="mt-2 w-full rounded-xl border border-white/20 bg-white/5 px-6 py-3 font-semibold transition active:scale-95 disabled:opacity-50"
-                >
-                  {busy ? "Working…" : "Subscribe again (~$0.02)"}
                 </button>
               </details>
             </>
