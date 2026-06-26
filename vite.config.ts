@@ -9,4 +9,15 @@ export default defineConfig({
     // Solana web3.js / spl-token need Buffer + process in the browser.
     nodePolyfills({ globals: { Buffer: true, global: true, process: true } }),
   ],
+  server: {
+    // Proxy TxLINE API through the dev server to avoid browser CORS.
+    // Browser calls /txapi/... → https://txline.txodds.com/...
+    proxy: {
+      '/txapi': {
+        target: 'https://txline.txodds.com',
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/txapi/, ''),
+      },
+    },
+  },
 })

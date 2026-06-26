@@ -1,8 +1,16 @@
 import { useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import { subscribeAndActivate, type SubscribeResult } from "../lib/subscribe";
+import {
+  subscribeAndActivate,
+  activateOnly,
+  type SubscribeResult,
+} from "../lib/subscribe";
 import { ACTIVE_NETWORK } from "../solana/WalletContext";
+
+// The user's already-successful subscription tx (finalized on-chain).
+const KNOWN_TX_SIG =
+  "44eNdvCzJNZEJ1fWmQDPpdvG5qk64quPiv2NaXpmQwAW32Tudt7br3crur5QssWVaS8FzvgC3f5SSPr6Nny2hpQd";
 
 export default function Setup({ onBack }: { onBack?: () => void }) {
   const { publicKey, sendTransaction, signMessage, connected } = useWallet();
@@ -11,8 +19,25 @@ export default function Setup({ onBack }: { onBack?: () => void }) {
   const [result, setResult] = useState<SubscribeResult | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [txSig, setTxSig] = useState(KNOWN_TX_SIG);
 
-  async function run() {
+  async function runActivate() {
+    if (!publicKey || !signMessage || !txSig.trim()) return;
+    setBusy(true);
+    setError("");
+    setResult(null);
+    try {
+      const r = await activateOnly({ publicKey, signMessage }, txSig.trim(), setStatus);
+      setResult(r);
+      setStatus("✅ API token activated!");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function runSubscribe() {
     if (!publicKey || !signMessage) return;
     setBusy(true);
     setError("");
@@ -47,8 +72,8 @@ export default function Setup({ onBack }: { onBack?: () => void }) {
 
       <h1 className="text-2xl font-bold">Connect TxLINE data feed</h1>
       <p className="mt-2 text-sm text-white/70">
-        One-time setup. Subscribe to the free real-time World Cup tier with your
-        Solana wallet. Your key never leaves Phantom.
+        Subscribe to the free real-time World Cup tier with your Solana wallet.
+        Your key never leaves Phantom.
       </p>
 
       <div className="mt-6">
@@ -61,19 +86,47 @@ export default function Setup({ onBack }: { onBack?: () => void }) {
             <div className="text-white/50">Network</div>
             <div className="font-semibold capitalize">{ACTIVE_NETWORK}</div>
             <div className="mt-2 text-white/50">Wallet</div>
-            <div className="break-all font-mono text-xs">
-              {publicKey.toBase58()}
-            </div>
+            <div className="break-all font-mono text-xs">{publicKey.toBase58()}</div>
           </div>
 
           {!result && (
-            <button
-              onClick={run}
-              disabled={busy}
-              className="w-full rounded-xl bg-grass px-6 py-4 text-lg font-bold text-ink shadow-lg transition active:scale-95 disabled:opacity-50"
-            >
-              {busy ? "Working…" : "Subscribe to TxLINE (free)"}
-            </button>
+            <>
+              {/* Primary: activate using an existing successful subscription tx. */}
+              <div className="space-y-2 rounded-xl border border-grass/40 bg-grass/5 p-4">
+                <div className="text-sm font-semibold text-grass">
+                  ✅ Already subscribed → Activate (no SOL cost)
+                </div>
+                <label className="block text-xs text-white/60">
+                  Subscription transaction signature
+                </label>
+                <input
+                  value={txSig}
+                  onChange={(e) => setTxSig(e.target.value)}
+                  className="w-full rounded-lg border border-white/15 bg-black/30 p-2 font-mono text-[10px]"
+                />
+                <button
+                  onClick={runActivate}
+                  disabled={busy}
+                  className="w-full rounded-xl bg-grass px-6 py-3 font-bold text-ink transition active:scale-95 disabled:opacity-50"
+                >
+                  {busy ? "Working…" : "Activate token"}
+                </button>
+              </div>
+
+              {/* Secondary: subscribe from scratch (only if not subscribed). */}
+              <details className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <summary className="cursor-pointer text-sm text-white/70">
+                  Not subscribed yet? Subscribe on-chain (~$0.02)
+                </summary>
+                <button
+                  onClick={runSubscribe}
+                  disabled={busy}
+                  className="mt-3 w-full rounded-xl border border-white/20 bg-white/5 px-6 py-3 font-semibold transition active:scale-95 disabled:opacity-50"
+                >
+                  {busy ? "Working…" : "Subscribe to TxLINE"}
+                </button>
+              </details>
+            </>
           )}
 
           {status && <p className="text-center text-sm text-gold">{status}</p>}
@@ -89,8 +142,8 @@ export default function Setup({ onBack }: { onBack?: () => void }) {
                 🎉 API token activated
               </div>
               <p className="text-xs text-white/70">
-                Paste this into <code className="text-gold">golpool/.env.local</code>{" "}
-                (and the worker reads it):
+                Paste this into{" "}
+                <code className="text-gold">golpool/.env.local</code>:
               </p>
               <pre className="overflow-x-auto rounded-lg bg-black/40 p-3 text-xs">
                 {envLine}
@@ -105,9 +158,6 @@ export default function Setup({ onBack }: { onBack?: () => void }) {
               >
                 {copied ? "Copied ✓" : "Copy to clipboard"}
               </button>
-              <p className="break-all text-[10px] text-white/40">
-                tx: {result.txSig}
-              </p>
             </div>
           )}
         </div>

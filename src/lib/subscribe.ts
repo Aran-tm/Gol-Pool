@@ -28,6 +28,10 @@ import {
   type Network,
 } from "./txlineConfig";
 
+// In the browser we route TxLINE API calls through the Vite dev proxy (/txapi)
+// to avoid CORS. The worker (node) hits the real base directly — no CORS there.
+const TXLINE_API = "/txapi";
+
 function buildSubscribeData(serviceLevelId: number, weeks: number): Buffer {
   const data = new Uint8Array(8 + 2 + 1);
   data.set(SUBSCRIBE_DISCRIMINATOR, 0);
@@ -126,12 +130,31 @@ export async function subscribeAndActivate(
   step("Approve the subscription in Phantom…");
   const txSig = await wallet.sendTransaction(tx, connection);
   step("Confirming on-chain…");
-  await connection.confirmTransaction(txSig, "confirmed");
+  try {
+    await connection.confirmTransaction(txSig, "confirmed");
+  } catch {
+    // The RPC may be slow to confirm even though the tx landed — proceed to
+    // activation, which validates the tx server-side anyway.
+    step("Confirmation slow — proceeding (tx may already be final)…");
+  }
 
-  // Activation: guest JWT → sign message → activate.
+  return activateToken(wallet, txSig, onStep);
+}
+
+interface SignerWallet {
+  publicKey: PublicKey;
+  signMessage: (message: Uint8Array) => Promise<Uint8Array>;
+}
+
+/** Activation: guest JWT → sign message → activate. Shared by both entry points. */
+async function activateToken(
+  wallet: SignerWallet,
+  txSig: string,
+  onStep?: (msg: string) => void,
+): Promise<SubscribeResult> {
+  const step = (m: string) => onStep?.(m);
   step("Activating API access…");
-  const base = cfg.txlineBase;
-  const authRes = await fetch(`${base}/auth/guest/start`, { method: "POST" });
+  const authRes = await fetch(`${TXLINE_API}/auth/guest/start`, { method: "POST" });
   if (!authRes.ok) throw new Error(`guest/start ${authRes.status}`);
   const jwt = (await authRes.json()).token as string;
 
@@ -140,7 +163,7 @@ export async function subscribeAndActivate(
   const sigBytes = await wallet.signMessage(new TextEncoder().encode(messageString));
   const walletSignature = btoa(String.fromCharCode(...sigBytes));
 
-  const actRes = await fetch(`${base}/api/token/activate`, {
+  const actRes = await fetch(`${TXLINE_API}/api/token/activate`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
     body: JSON.stringify({ txSig, walletSignature, leagues: SELECTED_LEAGUES }),
@@ -149,5 +172,14 @@ export async function subscribeAndActivate(
   const actJson = await actRes.json();
   const apiToken = (actJson.token ?? actJson) as string;
 
-  return { txSig, apiToken, jwt, walletAddress: user.toBase58() };
+  return { txSig, apiToken, jwt, walletAddress: wallet.publicKey.toBase58() };
+}
+
+/** Activate the API token for an ALREADY-completed subscription (no SOL cost). */
+export async function activateOnly(
+  wallet: SignerWallet,
+  txSig: string,
+  onStep?: (msg: string) => void,
+): Promise<SubscribeResult> {
+  return activateToken(wallet, txSig, onStep);
 }
