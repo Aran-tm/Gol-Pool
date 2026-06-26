@@ -36,7 +36,7 @@ async function main() {
   const upcoming = [...fixtures].sort((a, b) => a.StartTime - b.StartTime).slice(0, 10);
   console.log("\nNext 10 matches:");
   for (const f of upcoming) {
-    const when = new Date(f.StartTime * 1000).toISOString().replace("T", " ").slice(0, 16);
+    const when = new Date(f.StartTime).toISOString().replace("T", " ").slice(0, 16);
     console.log(`  ${when}  ${f.Participant1} vs ${f.Participant2}  (fixtureId=${f.FixtureId})`);
   }
 

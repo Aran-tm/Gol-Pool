@@ -35,7 +35,7 @@ export interface SoccerScore {
 // ── Fixtures snapshot ────────────────────────────────────────────────
 export interface Fixture {
   Ts: number;
-  StartTime: number; // epoch seconds
+  StartTime: number; // epoch milliseconds
   Competition: string;
   CompetitionId: number;
   FixtureGroupId: number;
