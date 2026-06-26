@@ -7,12 +7,12 @@ import {
   type SubscribeResult,
 } from "../lib/subscribe";
 import { ACTIVE_NETWORK } from "../solana/WalletContext";
+import { SELECTED_LEAGUES } from "../lib/txlineConfig";
 
-// An un-used successful subscription tx (finalized on-chain). The first one
-// (44eNd…) was already consumed by a prior activation, so we use a fresh one.
-// Backups if needed: 4RzQZcWp… / 25X2ocPn…
+// A fresh un-used subscription tx (finalized on-chain). 44eNd… and 2W1JaCs3… were
+// already consumed. Remaining backup: 25X2ocPn…
 const KNOWN_TX_SIG =
-  "2W1JaCs3EhFWs8MjjhquJ9YQPArd8bBipK9UjT7jWd53afm9wVVjak3YVVRyVeP3WGGqr1MCUvo3KM3XexDCKSFY";
+  "4RzQZcWpqjLwoFkNNQu6uKAfka7di6paKN6MUJi7LGohagXm5ywjgaiHZrLN9evSY8Sg4TXpTgbjjVry7UfmSSnd";
 
 export default function Setup({ onBack }: { onBack?: () => void }) {
   const { publicKey, sendTransaction, signMessage, connected } = useWallet();
@@ -22,6 +22,35 @@ export default function Setup({ onBack }: { onBack?: () => void }) {
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [txSig, setTxSig] = useState(KNOWN_TX_SIG);
+  const [manualOut, setManualOut] = useState("");
+
+  // Plan B: produce {txSig, jwt, walletSignature} locally. Only guest/start hits
+  // the (flaky) proxy and it's non-destructive — the tx-consuming activate call
+  // is done server-side by Claude, which reliably captures the token.
+  async function prepareManual() {
+    if (!publicKey || !signMessage || !txSig.trim()) return;
+    setBusy(true);
+    setError("");
+    setManualOut("");
+    try {
+      setStatus("Getting guest token…");
+      const res = await fetch("/txapi/auth/guest/start", { method: "POST" });
+      if (!res.ok) throw new Error(`guest/start ${res.status}`);
+      const jwt = (await res.json()).token as string;
+      const message = `${txSig.trim()}:${SELECTED_LEAGUES.join(",")}:${jwt}`;
+      setStatus("Sign the message in Phantom (free, local)…");
+      const sig = await signMessage(new TextEncoder().encode(message));
+      const walletSignature = btoa(String.fromCharCode(...sig));
+      setManualOut(
+        JSON.stringify({ txSig: txSig.trim(), jwt, walletSignature }, null, 2),
+      );
+      setStatus("✅ Signature ready — copy the box below and send it to Claude.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function runActivate() {
     if (!publicKey || !signMessage || !txSig.trim()) return;
@@ -93,11 +122,8 @@ export default function Setup({ onBack }: { onBack?: () => void }) {
 
           {!result && (
             <>
-              {/* Primary: activate using an existing successful subscription tx. */}
-              <div className="space-y-2 rounded-xl border border-grass/40 bg-grass/5 p-4">
-                <div className="text-sm font-semibold text-grass">
-                  ✅ Already subscribed → Activate (no SOL cost)
-                </div>
+              {/* Tx signature input (shared by both flows). */}
+              <div className="space-y-1 rounded-xl border border-white/10 bg-white/5 p-4">
                 <label className="block text-xs text-white/60">
                   Subscription transaction signature
                 </label>
@@ -106,26 +132,61 @@ export default function Setup({ onBack }: { onBack?: () => void }) {
                   onChange={(e) => setTxSig(e.target.value)}
                   className="w-full rounded-lg border border-white/15 bg-black/30 p-2 font-mono text-[10px]"
                 />
+              </div>
+
+              {/* Plan B (reliable): sign locally, Claude activates server-side. */}
+              <div className="space-y-2 rounded-xl border border-grass/40 bg-grass/5 p-4">
+                <div className="text-sm font-semibold text-grass">
+                  ✅ Generate activation signature (recommended)
+                </div>
+                <p className="text-xs text-white/60">
+                  Signs locally in Phantom (free, no SOL). Copy the result and
+                  send it to Claude to finish activation.
+                </p>
                 <button
-                  onClick={runActivate}
+                  onClick={prepareManual}
                   disabled={busy}
                   className="w-full rounded-xl bg-grass px-6 py-3 font-bold text-ink transition active:scale-95 disabled:opacity-50"
                 >
-                  {busy ? "Working…" : "Activate token"}
+                  {busy ? "Working…" : "Generate signature"}
                 </button>
+                {manualOut && (
+                  <>
+                    <pre className="max-h-40 overflow-auto rounded-lg bg-black/40 p-3 text-[10px]">
+                      {manualOut}
+                    </pre>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(manualOut);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 1500);
+                      }}
+                      className="w-full rounded-lg border border-white/20 bg-white/5 py-2 text-sm font-semibold"
+                    >
+                      {copied ? "Copied ✓" : "Copy & send to Claude"}
+                    </button>
+                  </>
+                )}
               </div>
 
-              {/* Secondary: subscribe from scratch (only if not subscribed). */}
+              {/* Alternative: direct browser activation (may hit flaky proxy). */}
               <details className="rounded-xl border border-white/10 bg-white/5 p-4">
                 <summary className="cursor-pointer text-sm text-white/70">
-                  Not subscribed yet? Subscribe on-chain (~$0.02)
+                  Other options
                 </summary>
                 <button
-                  onClick={runSubscribe}
+                  onClick={runActivate}
                   disabled={busy}
                   className="mt-3 w-full rounded-xl border border-white/20 bg-white/5 px-6 py-3 font-semibold transition active:scale-95 disabled:opacity-50"
                 >
-                  {busy ? "Working…" : "Subscribe to TxLINE"}
+                  {busy ? "Working…" : "Activate directly (browser)"}
+                </button>
+                <button
+                  onClick={runSubscribe}
+                  disabled={busy}
+                  className="mt-2 w-full rounded-xl border border-white/20 bg-white/5 px-6 py-3 font-semibold transition active:scale-95 disabled:opacity-50"
+                >
+                  {busy ? "Working…" : "Subscribe again (~$0.02)"}
                 </button>
               </details>
             </>
