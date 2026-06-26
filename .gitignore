@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Secrets / wallets — NEVER commit
+.env.local
+worker/*-keypair.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -64,11 +64,13 @@ Each member owns N assigned teams. Points accrue live:
 - `match_events` — match_id, type (goal/red_card/...), team_id, minute, payload
 - `score_log` — pool_id, wallet_address, match_id, points, reason, created_at (audit trail / live feed)
 
-## 🔌 TxLINE endpoints (to confirm against docs)
-- Fixtures / schedule (104 games)
-- Live scores
-- Match events (goals, cards)
-- Odds (for the underdog-bonus mechanic)
+## 🔌 TxLINE endpoints (confirmed)
+**Auth (2-token):** `POST /auth/guest/start` → guest JWT · on-chain `subscribe(serviceLevel, weeks)` (free tier **12** = real-time) · `POST /api/token/activate` → long-lived API token. Every data call sends `Authorization: Bearer {jwt}` + `X-Api-Token: {apiToken}`.
+- `GET /api/fixtures/snapshot?startEpochDay&competitionId` — the World Cup matches
+- `GET /api/scores/stream?fixtureId` — **real-time SSE** score updates (drives the live leaderboard)
+- `GET /api/scores/snapshot/{fixtureId}?asOf` — current / historical score snapshot
+- `GET /api/odds/stream` — real-time SSE odds (underdog-bonus mechanic)
+> Soccer score schema: per-participant periods `H1/HT/H2/ET1/ET2/PE/ETTotal/Total`, each `{Goals,YellowCards,RedCards,Corners}`. `gameState` 1-19 (2/4 = live, 5 = finished).
 > Quickstart: https://txline.txodds.com/documentation/quickstart · World Cup: https://txline.txodds.com/documentation/worldcup
 
 ## 💰 Monetization path

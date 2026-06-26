@@ -1,0 +1,186 @@
+// TxLINE API client + types.
+// NOTE: calls that use the API token must run SERVER-SIDE (the ingestion worker),
+// never in the browser — the token is long-lived and must stay secret. The browser
+// talks to Supabase Realtime instead. Types are shared by both sides.
+
+export const TXLINE_BASE = {
+  mainnet: "https://txline.txodds.com",
+  devnet: "https://txline-dev.txodds.com",
+} as const;
+
+// ── Soccer score schema (scoreSoccer) ───────────────────────────────
+export interface PeriodStat {
+  Goals: number;
+  YellowCards: number;
+  RedCards: number;
+  Corners: number;
+}
+
+export interface ParticipantScore {
+  H1: PeriodStat;
+  HT: PeriodStat;
+  H2: PeriodStat;
+  ET1: PeriodStat;
+  ET2: PeriodStat;
+  PE: PeriodStat;
+  ETTotal: PeriodStat;
+  Total: PeriodStat;
+}
+
+export interface SoccerScore {
+  Participant1: ParticipantScore;
+  Participant2: ParticipantScore;
+}
+
+// ── Fixtures snapshot ────────────────────────────────────────────────
+export interface Fixture {
+  Ts: number;
+  StartTime: number; // epoch seconds
+  Competition: string;
+  CompetitionId: number;
+  FixtureGroupId: number;
+  Participant1Id: number;
+  Participant1: string;
+  Participant2Id: number;
+  Participant2: string;
+  FixtureId: number;
+  Participant1IsHome: boolean;
+}
+
+// ── Scores stream / snapshot event ───────────────────────────────────
+export interface ScoresEvent {
+  fixtureId: number;
+  gameState: string | number; // see GAME_STATE
+  startTime: number;
+  scoreSoccer?: SoccerScore;
+  dataSoccer?: unknown;
+  ts: number;
+  seq: number;
+  connectionId?: string;
+  action?: string;
+  confirmed?: boolean;
+}
+
+export const GAME_STATE: Record<number, string> = {
+  1: "Not Started",
+  2: "First Half",
+  3: "Halftime",
+  4: "Second Half",
+  5: "Finished",
+  10: "Ended (ET)",
+  13: "Ended (Pens)",
+  15: "Abandoned",
+  16: "Cancelled",
+  19: "Postponed",
+};
+
+export const isLive = (state: number) => state === 2 || state === 4;
+export const isFinished = (state: number) =>
+  state === 5 || state === 10 || state === 13;
+
+// ── Auth + data helpers ──────────────────────────────────────────────
+export interface TxlineAuth {
+  jwt: string; // guest session JWT
+  apiToken: string; // long-lived API token from activation
+}
+
+function headers(auth: TxlineAuth, extra: Record<string, string> = {}) {
+  return {
+    Authorization: `Bearer ${auth.jwt}`,
+    "X-Api-Token": auth.apiToken,
+    ...extra,
+  };
+}
+
+/** Step 1 of auth: get a guest session JWT. */
+export async function startGuestSession(base = TXLINE_BASE.mainnet): Promise<string> {
+  const res = await fetch(`${base}/auth/guest/start`, { method: "POST" });
+  if (!res.ok) throw new Error(`guest/start failed: ${res.status}`);
+  const json = await res.json();
+  return json.token;
+}
+
+/** Latest snapshot of fixtures (the World Cup matches). */
+export async function getFixtures(
+  auth: TxlineAuth,
+  opts: { startEpochDay?: number; competitionId?: number } = {},
+  base = TXLINE_BASE.mainnet,
+): Promise<Fixture[]> {
+  const qs = new URLSearchParams();
+  if (opts.startEpochDay != null) qs.set("startEpochDay", String(opts.startEpochDay));
+  if (opts.competitionId != null) qs.set("competitionId", String(opts.competitionId));
+  const res = await fetch(`${base}/api/fixtures/snapshot?${qs}`, {
+    headers: headers(auth),
+  });
+  if (!res.ok) throw new Error(`fixtures/snapshot failed: ${res.status}`);
+  return res.json();
+}
+
+/** Current score snapshot for a fixture (asOf ms for historical replay). */
+export async function getScoreSnapshot(
+  auth: TxlineAuth,
+  fixtureId: number,
+  asOf?: number,
+  base = TXLINE_BASE.mainnet,
+): Promise<ScoresEvent[]> {
+  const qs = asOf != null ? `?asOf=${asOf}` : "";
+  const res = await fetch(`${base}/api/scores/snapshot/${fixtureId}${qs}`, {
+    headers: headers(auth),
+  });
+  if (!res.ok) throw new Error(`scores/snapshot failed: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Connect to the real-time SSE scores stream and invoke onEvent per parsed event.
+ * Server-side only. Returns when the stream ends or the AbortSignal fires.
+ */
+export async function streamScores(
+  auth: TxlineAuth,
+  onEvent: (e: ScoresEvent) => void,
+  opts: { fixtureId?: number; lastEventId?: string; signal?: AbortSignal } = {},
+  base = TXLINE_BASE.mainnet,
+): Promise<void> {
+  const qs = opts.fixtureId != null ? `?fixtureId=${opts.fixtureId}` : "";
+  const extra: Record<string, string> = {
+    Accept: "text/event-stream",
+    "Cache-Control": "no-cache",
+  };
+  if (opts.lastEventId) extra["Last-Event-ID"] = opts.lastEventId;
+
+  const res = await fetch(`${base}/api/scores/stream${qs}`, {
+    headers: headers(auth, extra),
+    signal: opts.signal,
+  });
+  if (!res.ok || !res.body) throw new Error(`scores/stream failed: ${res.status}`);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      // SSE messages are separated by a blank line.
+      const messages = buffer.split("\n\n");
+      buffer = messages.pop() ?? "";
+
+      for (const msg of messages) {
+        const lines = msg.split("\n");
+        if (lines.some((l) => l.startsWith("event: heartbeat"))) continue;
+        const dataLine = lines.find((l) => l.startsWith("data:"));
+        if (!dataLine) continue;
+        try {
+          onEvent(JSON.parse(dataLine.slice(5).trim()) as ScoresEvent);
+        } catch {
+          // ignore malformed chunk
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
