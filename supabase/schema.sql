@@ -102,8 +102,8 @@ create index if not exists idx_assignments_pool  on team_assignments(pool_id);
 create index if not exists idx_events_fixture    on match_events(fixture_id);
 create index if not exists idx_scorelog_pool     on score_log(pool_id);
 
--- Realtime: add the tables the leaderboard subscribes to
--- (run once) ── alter publication supabase_realtime add table pool_members, match_events, matches, score_log;
+-- Realtime: let the browser leaderboard subscribe to live changes.
+alter publication supabase_realtime add table pool_members, match_events, matches, score_log;
 
 -- RLS: enable later. For the hackathon MVP, reads are public; writes to matches/events/score_log
 -- happen only via the ingestion worker using the service-role key (bypasses RLS).
