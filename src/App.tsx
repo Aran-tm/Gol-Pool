@@ -1,4 +1,11 @@
+import { useState } from "react";
+import Setup from "./pages/Setup";
+
 function App() {
+  const [view, setView] = useState<"home" | "setup">("home");
+
+  if (view === "setup") return <Setup onBack={() => setView("home")} />;
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center px-6 py-10 text-center">
       <span className="mb-6 rounded-full border border-white/20 bg-white/5 px-4 py-1 text-xs font-medium uppercase tracking-widest text-gold">
@@ -50,9 +57,12 @@ function App() {
         ))}
       </div>
 
-      <p className="mt-auto pt-10 text-xs text-white/40">
-        Powered by TxLINE live data · Built on Solana
-      </p>
+      <button
+        onClick={() => setView("setup")}
+        className="mt-auto pt-10 text-xs text-white/40 underline-offset-2 hover:underline"
+      >
+        ⚙️ Setup TxLINE data feed
+      </button>
     </main>
   );
 }
