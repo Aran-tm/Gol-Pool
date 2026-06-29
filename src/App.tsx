@@ -1,121 +1,40 @@
-import { useState } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import { motion, type Variants } from "framer-motion";
-import { Trophy, Radio, Wallet, Settings } from "lucide-react";
-import Background from "./components/Background";
+import { Routes, Route, Navigate } from "react-router-dom";
+import AppShell from "./components/AppShell";
+import ProtectedRoute from "./components/ProtectedRoute";
+import Landing from "./pages/Landing";
+import Onboarding from "./pages/Onboarding";
+import Dashboard from "./pages/Dashboard";
+import MatchCenter from "./pages/MatchCenter";
+import MatchDetail from "./pages/MatchDetail";
 import Pools from "./pages/Pools";
 import PoolDetail from "./pages/PoolDetail";
+import Profile from "./pages/Profile";
+import HowToPlay from "./pages/HowToPlay";
 import Setup from "./pages/Setup";
 
-const container: Variants = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.09, delayChildren: 0.1 } },
-};
-const item: Variants = {
-  hidden: { opacity: 0, y: 18 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: "easeOut" } },
-};
-
-function Landing({ onSetup }: { onSetup: () => void }) {
-  const stats = [
-    { icon: Trophy, k: "104", v: "Matches" },
-    { icon: Radio, k: "Live", v: "Scoring" },
-    { icon: Wallet, k: "Solana", v: "Sign-in" },
-  ];
+export default function App() {
   return (
-    <motion.main
-      variants={container}
-      initial="hidden"
-      animate="show"
-      className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center px-6 py-12 text-center"
-    >
-      <motion.span
-        variants={item}
-        className="mb-8 rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.25em] text-gold backdrop-blur"
-      >
-        World Cup 2026
-      </motion.span>
+    <Routes>
+      <Route element={<AppShell />}>
+        {/* Public */}
+        <Route index element={<Landing />} />
+        <Route path="onboarding" element={<Onboarding />} />
 
-      {/* Animated ball */}
-      <motion.div variants={item} className="relative mb-2 h-32 w-32">
-        <div className="absolute inset-0 rounded-full bg-grass/30 blur-3xl" />
-        <motion.div
-          animate={{ y: [0, -12, 0] }}
-          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-          className="relative flex h-full w-full items-center justify-center"
-        >
-          <span className="text-[5.5rem] drop-shadow-[0_8px_24px_rgba(34,197,94,0.45)]">⚽</span>
-        </motion.div>
-      </motion.div>
+        {/* Wallet required */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="matches" element={<MatchCenter />} />
+          <Route path="matches/:fixtureId" element={<MatchDetail />} />
+          <Route path="pools" element={<Pools />} />
+          <Route path="pools/:poolId" element={<PoolDetail />} />
+          <Route path="profile" element={<Profile />} />
+          <Route path="profile/how-to-play" element={<HowToPlay />} />
+          <Route path="setup" element={<Setup />} />
+        </Route>
 
-      <motion.h1
-        variants={item}
-        className="text-gradient text-6xl font-black leading-none tracking-tight"
-      >
-        GolPool
-      </motion.h1>
-
-      <motion.p variants={item} className="mt-5 max-w-xs text-lg leading-relaxed text-white/70">
-        The group sweepstake that{" "}
-        <span className="font-semibold text-white">scores itself.</span> Watch the
-        leaderboard move <span className="font-semibold text-gold">live</span> with
-        every goal.
-      </motion.p>
-
-      <motion.div variants={item} className="mt-9 w-full">
-        <WalletMultiButton style={{ width: "100%", justifyContent: "center" }} />
-        <p className="mt-3 text-xs text-white/40">Connect your wallet to enter</p>
-      </motion.div>
-
-      <motion.div variants={item} className="mt-12 grid w-full grid-cols-3 gap-3">
-        {stats.map((s) => (
-          <div key={s.v} className="glass rounded-2xl px-2 py-4">
-            <s.icon className="mx-auto mb-1.5 h-4 w-4 text-grass" />
-            <div className="text-lg font-bold text-gold">{s.k}</div>
-            <div className="text-[10px] uppercase tracking-wide text-white/50">{s.v}</div>
-          </div>
-        ))}
-      </motion.div>
-
-      <motion.button
-        variants={item}
-        onClick={onSetup}
-        className="mt-auto flex items-center gap-1.5 pt-12 text-xs text-white/35 transition hover:text-white/70"
-      >
-        <Settings className="h-3.5 w-3.5" /> TxLINE data setup
-      </motion.button>
-    </motion.main>
+        {/* Catch-all */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
   );
 }
-
-function App() {
-  const { connected } = useWallet();
-  const [view, setView] = useState<"pools" | "pool" | "setup">("pools");
-  const [poolId, setPoolId] = useState<string | null>(null);
-
-  let screen;
-  if (view === "setup") screen = <Setup onBack={() => setView("pools")} />;
-  else if (!connected) screen = <Landing onSetup={() => setView("setup")} />;
-  else if (view === "pool" && poolId)
-    screen = <PoolDetail poolId={poolId} onBack={() => setView("pools")} />;
-  else
-    screen = (
-      <Pools
-        onOpenPool={(id) => {
-          setPoolId(id);
-          setView("pool");
-        }}
-        onSetup={() => setView("setup")}
-      />
-    );
-
-  return (
-    <>
-      <Background />
-      {screen}
-    </>
-  );
-}
-
-export default App;

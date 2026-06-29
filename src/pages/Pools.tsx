@@ -1,21 +1,24 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { motion } from "framer-motion";
-import { Plus, LogIn, ChevronRight, Settings, Trophy } from "lucide-react";
-import { createPool, joinPool, getMyPools, type Pool } from "../lib/api";
+import { Plus, LogIn, ChevronRight, Trophy, Users } from "lucide-react";
+import { createPool, joinPool, getMyPools, getPoolMemberCount, type Pool } from "../lib/api";
 import { Label } from "../components/ui";
+import EmptyState from "../components/EmptyState";
+import PageTransition from "../components/PageTransition";
 
-export default function Pools({
-  onOpenPool,
-  onSetup,
-}: {
-  onOpenPool: (poolId: string) => void;
-  onSetup: () => void;
-}) {
+interface PoolCard {
+  pool: Pool;
+  memberCount: number;
+}
+
+export default function Pools() {
   const { publicKey } = useWallet();
   const wallet = publicKey?.toBase58() ?? "";
-  const [pools, setPools] = useState<Pool[]>([]);
+  const navigate = useNavigate();
+
+  const [pools, setPools] = useState<PoolCard[]>([]);
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -24,14 +27,23 @@ export default function Pools({
   async function refresh() {
     if (!wallet) return;
     try {
-      setPools(await getMyPools(wallet));
+      const p = await getMyPools(wallet);
+      const enriched = await Promise.all(
+        p.map(async (pool) => {
+          let memberCount = 0;
+          try {
+            memberCount = await getPoolMemberCount(pool.id);
+          } catch { /* ignore */ }
+          return { pool, memberCount };
+        }),
+      );
+      setPools(enriched);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
   }
   useEffect(() => {
     refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallet]);
 
   async function handleCreate() {
@@ -40,7 +52,7 @@ export default function Pools({
     setError("");
     try {
       const p = await createPool(name.trim(), wallet);
-      onOpenPool(p.id);
+      navigate(`/pools/${p.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -53,7 +65,7 @@ export default function Pools({
     setError("");
     try {
       const p = await joinPool(code.trim(), wallet);
-      onOpenPool(p.id);
+      navigate(`/pools/${p.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -62,14 +74,8 @@ export default function Pools({
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 py-8">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">⚽</span>
-          <span className="text-gradient text-2xl font-black tracking-tight">GolPool</span>
-        </div>
-        <WalletMultiButton />
-      </div>
+    <PageTransition className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pt-8 pb-24">
+      <h1 className="text-2xl font-black">Pools</h1>
 
       {error && (
         <p className="mt-4 rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
@@ -82,7 +88,7 @@ export default function Pools({
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="mt-6 glass rounded-3xl p-5 shadow-card"
+        className="mt-5 glass rounded-3xl p-5 shadow-card"
       >
         <div className="mb-3 flex items-center gap-2">
           <div className="grid h-9 w-9 place-items-center rounded-xl bg-grass/15 text-grass">
@@ -95,6 +101,9 @@ export default function Pools({
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Office World Cup"
           className="field"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleCreate();
+          }}
         />
         <button
           onClick={handleCreate}
@@ -124,6 +133,9 @@ export default function Pools({
             onChange={(e) => setCode(e.target.value.toUpperCase())}
             placeholder="ABC23"
             className="field flex-1 font-mono uppercase tracking-[0.3em]"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleJoin();
+            }}
           />
           <button onClick={handleJoin} disabled={busy || !code.trim()} className="btn-ghost px-5">
             Join
@@ -136,36 +148,37 @@ export default function Pools({
         <Label>My pools</Label>
         <div className="mt-3 space-y-2">
           {pools.length === 0 && (
-            <div className="glass flex flex-col items-center gap-2 rounded-3xl p-8 text-center">
-              <Trophy className="h-7 w-7 text-white/30" />
-              <p className="text-sm text-white/50">No pools yet — create one or join with a code.</p>
-            </div>
+            <EmptyState
+              icon={Trophy}
+              title="No pools yet"
+              description="Create one or join with a code from a friend."
+            />
           )}
-          {pools.map((p, i) => (
+          {pools.map(({ pool, memberCount }, i) => (
             <motion.button
-              key={p.id}
+              key={pool.id}
               initial={{ opacity: 0, x: -12 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.05 }}
-              onClick={() => onOpenPool(p.id)}
+              onClick={() => navigate(`/pools/${pool.id}`)}
               className="group flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-grass/50 hover:bg-white/[0.07]"
             >
               <div>
-                <div className="font-bold">{p.name}</div>
-                <div className="font-mono text-xs text-gold">#{p.join_code}</div>
+                <div className="font-bold">{pool.name}</div>
+                <div className="mt-0.5 flex items-center gap-2 text-xs text-white/40">
+                  <span className="font-mono text-gold">#{pool.join_code}</span>
+                  <span>·</span>
+                  <span className="flex items-center gap-1">
+                    <Users className="h-3 w-3" />
+                    {memberCount}
+                  </span>
+                </div>
               </div>
               <ChevronRight className="h-5 w-5 text-white/30 transition group-hover:translate-x-1 group-hover:text-grass" />
             </motion.button>
           ))}
         </div>
       </div>
-
-      <button
-        onClick={onSetup}
-        className="mt-auto flex items-center gap-1.5 pt-8 text-xs text-white/30 transition hover:text-white/60"
-      >
-        <Settings className="h-3.5 w-3.5" /> TxLINE setup
-      </button>
-    </main>
+    </PageTransition>
   );
 }

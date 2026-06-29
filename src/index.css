@@ -62,6 +62,11 @@ body {
   scrollbar-width: none;
 }
 
+/* Bottom nav safe area */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 /* ── Solana wallet-adapter button → themed ───────────────────────── */
 .wallet-adapter-button {
   background: linear-gradient(110deg, #22c55e 0%, #ffd166 100%) !important;

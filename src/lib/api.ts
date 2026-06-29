@@ -137,6 +137,23 @@ export async function getAssignments(poolId: string): Promise<Assignment[]> {
   return (data ?? []) as Assignment[];
 }
 
+/** Get member count for a pool (lightweight — no full member list). */
+export async function getPoolMemberCount(poolId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from("pool_members")
+    .select("*", { count: "exact", head: true })
+    .eq("pool_id", poolId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Update (or clear) a user's display name. */
+export async function updateDisplayName(wallet: string, name: string): Promise<void> {
+  await supabase
+    .from("profiles")
+    .upsert({ wallet_address: wallet, display_name: name }, { onConflict: "wallet_address" });
+}
+
 /** Subscribe to live match updates; calls cb on any change. Returns an unsubscribe fn. */
 export function subscribeMatches(cb: () => void): () => void {
   const channel = supabase

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
-import { ArrowLeft, Copy, Check, Crown } from "lucide-react";
+import { ArrowLeft, Copy, Check, Crown, Users, Shield } from "lucide-react";
 import {
   getPool,
   getMembers,
@@ -13,12 +14,21 @@ import {
   type Member,
   type Assignment,
 } from "../lib/api";
-import { memberPoints, type MatchRow } from "../lib/scoring";
+import { memberPoints, teamPoints, POINTS, type MatchRow } from "../lib/scoring";
 import { isLive } from "../lib/txline";
 import { flag } from "../lib/flags";
 import { AnimatedNumber, LiveBadge, Label } from "../components/ui";
+import TeamBadge from "../components/TeamBadge";
+import EmptyState from "../components/EmptyState";
 
 const short = (w: string) => `${w.slice(0, 4)}…${w.slice(-4)}`;
+
+type Tab = "leaderboard" | "my-teams" | "rules";
+const TABS: { key: Tab; label: string; icon: React.FC<{ className?: string }> }[] = [
+  { key: "leaderboard", label: "Leaderboard", icon: Crown },
+  { key: "my-teams", label: "My Teams", icon: Users },
+  { key: "rules", label: "Rules", icon: Shield },
+];
 
 function celebrate() {
   confetti({
@@ -36,10 +46,13 @@ interface Row {
   teams: { id: number; name: string }[];
 }
 
-export default function PoolDetail({ poolId, onBack }: { poolId: string; onBack: () => void }) {
+export default function PoolDetail() {
+  const { poolId } = useParams<{ poolId: string }>();
+  const navigate = useNavigate();
   const { publicKey } = useWallet();
   const me = publicKey?.toBase58() ?? "";
 
+  const [tab, setTab] = useState<Tab>("leaderboard");
   const [pool, setPool] = useState<Pool | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -49,7 +62,12 @@ export default function PoolDetail({ poolId, onBack }: { poolId: string; onBack:
   const goalsRef = useRef<Map<number, number>>(new Map());
 
   const loadStatic = useCallback(async () => {
-    const [p, m, a] = await Promise.all([getPool(poolId), getMembers(poolId), getAssignments(poolId)]);
+    if (!poolId) return;
+    const [p, m, a] = await Promise.all([
+      getPool(poolId),
+      getMembers(poolId),
+      getAssignments(poolId),
+    ]);
     setPool(p);
     setMembers(m);
     setAssignments(a);
@@ -71,7 +89,7 @@ export default function PoolDetail({ poolId, onBack }: { poolId: string; onBack:
     [assignments, me],
   );
 
-  // Goal celebration: when one of my teams' goal tally rises, confetti + toast.
+  // Goal celebration
   useEffect(() => {
     if (myTeams.length === 0) return;
     const prev = goalsRef.current;
@@ -98,7 +116,11 @@ export default function PoolDetail({ poolId, onBack }: { poolId: string; onBack:
           const teams = assignments
             .filter((a) => a.wallet_address === mem.wallet_address)
             .map((a) => ({ id: a.team_id, name: a.team_name }));
-          return { wallet: mem.wallet_address, points: memberPoints(teams.map((t) => t.id), matches), teams };
+          return {
+            wallet: mem.wallet_address,
+            points: memberPoints(teams.map((t) => t.id), matches),
+            teams,
+          };
         })
         .sort((a, b) => b.points - a.points),
     [members, assignments, matches],
@@ -107,7 +129,7 @@ export default function PoolDetail({ poolId, onBack }: { poolId: string; onBack:
   const liveMatches = matches.filter((m) => isLive(m.game_state));
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 py-8">
+    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pt-8 pb-24">
       {/* Goal toast */}
       <AnimatePresence>
         {toast && (
@@ -122,7 +144,10 @@ export default function PoolDetail({ poolId, onBack }: { poolId: string; onBack:
         )}
       </AnimatePresence>
 
-      <button onClick={onBack} className="mb-5 flex w-fit items-center gap-1 text-sm text-white/60 transition hover:text-white">
+      <button
+        onClick={() => navigate("/pools")}
+        className="mb-5 flex w-fit items-center gap-1 text-sm text-white/60 transition hover:text-white"
+      >
         <ArrowLeft className="h-4 w-4" /> Pools
       </button>
 
@@ -145,17 +170,17 @@ export default function PoolDetail({ poolId, onBack }: { poolId: string; onBack:
         {members.length} player{members.length === 1 ? "" : "s"}
       </div>
 
-      {/* Live matches */}
+      {/* Live matches banner */}
       {liveMatches.length > 0 && (
-        <div className="mt-5 space-y-2 rounded-3xl border border-red-500/30 bg-red-500/[0.06] p-4">
+        <div className="mt-4 space-y-1.5 rounded-2xl border border-red-500/30 bg-red-500/[0.06] p-3">
           <LiveBadge />
           {liveMatches.map((m) => (
-            <div key={m.fixture_id} className="flex items-center justify-between text-sm">
+            <div key={m.fixture_id} className="flex items-center justify-between text-xs">
               <span className="flex items-center gap-1.5">
                 {flag(m.home_team)} {m.home_team}
               </span>
-              <span className="font-black tabular-nums">
-                {m.home_goals} <span className="text-white/30">–</span> {m.away_goals}
+              <span className="font-black tabular-nums text-gold">
+                {m.home_goals} – {m.away_goals}
               </span>
               <span className="flex items-center gap-1.5">
                 {m.away_team} {flag(m.away_team)}
@@ -165,12 +190,46 @@ export default function PoolDetail({ poolId, onBack }: { poolId: string; onBack:
         </div>
       )}
 
-      {/* Leaderboard */}
-      <div className="mt-7 flex items-center justify-between">
-        <Label>Leaderboard</Label>
-        {liveMatches.length > 0 ? <LiveBadge /> : <span className="text-xs text-white/30">live</span>}
+      {/* Tabs */}
+      <div className="mt-6 flex gap-1 rounded-2xl border border-white/10 bg-white/[0.03] p-1">
+        {TABS.map(({ key, label, icon: Icon }) => {
+          const active = tab === key;
+          return (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-xs font-semibold transition ${
+                active
+                  ? "bg-grass/20 text-grass"
+                  : "text-white/40 hover:text-white/70"
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {label}
+            </button>
+          );
+        })}
       </div>
 
+      {/* Tab content */}
+      <div className="mt-5">
+        {tab === "leaderboard" && <LeaderboardTab rows={rows} me={me} liveMatches={liveMatches.length} />}
+        {tab === "my-teams" && <MyTeamsTab myTeams={myTeams} matches={matches} />}
+        {tab === "rules" && <RulesTab pool={pool} membersCount={members.length} />}
+      </div>
+    </main>
+  );
+}
+
+/* ── Tab: Leaderboard ──────────────────────────────────────────────── */
+
+function LeaderboardTab({ rows, me, liveMatches }: { rows: Row[]; me: string; liveMatches: number }) {
+  return (
+    <>
+      <div className="flex items-center justify-between">
+        <Label>Leaderboard</Label>
+        {liveMatches > 0 ? <LiveBadge /> : <span className="text-xs text-white/30">live</span>}
+      </div>
       <div className="mt-3 space-y-2.5">
         {rows.map((r, i) => {
           const isMe = r.wallet === me;
@@ -180,47 +239,163 @@ export default function PoolDetail({ poolId, onBack }: { poolId: string; onBack:
               key={r.wallet}
               transition={{ type: "spring", stiffness: 500, damping: 40 }}
               className={`rounded-2xl border p-4 ${
-                isMe ? "border-grass/60 bg-grass/[0.08] shadow-glow" : "border-white/10 bg-white/[0.04]"
+                isMe
+                  ? "border-grass/60 bg-grass/[0.08] shadow-glow"
+                  : "border-white/10 bg-white/[0.04]"
               }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <span className="grid h-8 w-8 place-items-center text-lg">
-                    {i === 0 ? <Crown className="h-5 w-5 text-gold" /> : ["🥈", "🥉"][i - 1] ?? <span className="text-sm font-bold text-white/40">{i + 1}</span>}
+                    {i === 0 ? (
+                      <Crown className="h-5 w-5 text-gold" />
+                    ) : (
+                      ["🥈", "🥉"][i - 1] ?? (
+                        <span className="text-sm font-bold text-white/40">{i + 1}</span>
+                      )
+                    )}
                   </span>
                   <span className="font-mono text-sm">
                     {short(r.wallet)}
                     {isMe && <span className="ml-1 text-grass">you</span>}
                   </span>
                 </div>
-                <AnimatedNumber value={r.points} className="text-2xl font-black text-gold tabular-nums" />
+                <AnimatedNumber
+                  value={r.points}
+                  className="text-2xl font-black text-gold tabular-nums"
+                />
               </div>
               <div className="mt-2.5 flex flex-wrap gap-1 pl-11">
                 {r.teams.map((t) => (
-                  <span
-                    key={t.id}
-                    className="flex items-center gap-1 rounded-lg bg-white/[0.06] px-2 py-0.5 text-[11px] text-white/70"
-                  >
-                    {flag(t.name)} {t.name}
-                  </span>
+                  <TeamBadge key={t.id} teamName={t.name} size="sm" />
                 ))}
               </div>
             </motion.div>
           );
         })}
         {rows.length === 0 && (
-          <p className="glass rounded-2xl p-6 text-center text-sm text-white/50">No players yet.</p>
+          <EmptyState icon={Users} title="No players yet" description="Share the join code to invite friends." />
         )}
       </div>
 
       <p className="mt-7 text-center text-[11px] text-white/30">
-        +2 goal · +3 win · +1 draw · +2 clean sheet — live from TxLINE
+        +{POINTS.goal} goal · +{POINTS.win} win · +{POINTS.draw} draw · +{POINTS.cleanSheet} clean sheet — live from TxLINE
       </p>
-    </main>
+    </>
   );
 }
 
-/** Total goals scored by a team across matches (for celebration detection). */
+/* ── Tab: My Teams ─────────────────────────────────────────────────── */
+
+function MyTeamsTab({ myTeams, matches }: { myTeams: { id: number; name: string }[]; matches: MatchRow[] }) {
+  if (myTeams.length === 0) {
+    return <EmptyState icon={Shield} title="No teams assigned" description="Join a pool to get your random World Cup teams." />;
+  }
+
+  return (
+    <div className="space-y-4">
+      {myTeams.map((team) => {
+        const pts = teamPoints(team.id, matches);
+        const teamMatches = matches.filter(
+          (m) => m.home_team_id === team.id || m.away_team_id === team.id,
+        );
+        return (
+          <div key={team.id} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">{flag(team.name)}</span>
+                <span className="font-bold">{team.name}</span>
+              </div>
+              <span className="text-xl font-black text-gold">{pts} pts</span>
+            </div>
+            <div className="mt-3 space-y-1">
+              {teamMatches.map((m) => {
+                const started = m.game_state !== 1;
+                return (
+                  <div
+                    key={m.fixture_id}
+                    className="flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-1.5 text-xs"
+                  >
+                    <span className="text-white/60">
+                      vs {m.home_team_id === team.id ? m.away_team : m.home_team}
+                    </span>
+                    {started ? (
+                      <span className="font-bold tabular-nums text-gold">
+                        {m.home_team_id === team.id ? m.home_goals : m.away_goals}
+                        <span className="text-white/30">–</span>
+                        {m.home_team_id === team.id ? m.away_goals : m.home_goals}
+                      </span>
+                    ) : (
+                      <span className="text-white/30">—</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── Tab: Rules ────────────────────────────────────────────────────── */
+
+function RulesTab({ pool, membersCount }: { pool: Pool | null; membersCount: number }) {
+  return (
+    <div className="space-y-4">
+      {/* Pool info */}
+      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+        <h3 className="text-xs font-bold text-white/50 uppercase tracking-wider">Pool info</h3>
+        <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <span className="text-white/40">Name</span>
+            <p className="font-bold">{pool?.name ?? "—"}</p>
+          </div>
+          <div>
+            <span className="text-white/40">Join code</span>
+            <p className="font-mono font-bold text-gold">{pool?.join_code ?? "—"}</p>
+          </div>
+          <div>
+            <span className="text-white/40">Players</span>
+            <p className="font-bold">{membersCount}</p>
+          </div>
+          <div>
+            <span className="text-white/40">Entry fee</span>
+            <p className="font-bold">{pool?.entry_fee ? `${pool.entry_fee} SOL` : "Free"}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Scoring table */}
+      <div className="rounded-2xl border border-white/10">
+        <h3 className="px-4 pt-4 text-xs font-bold text-white/50 uppercase tracking-wider">Scoring</h3>
+        <div className="mt-2">
+          {[
+            ["Goal scored", `+${POINTS.goal}`, "Live"],
+            ["Win", `+${POINTS.win}`, "Full-time"],
+            ["Draw", `+${POINTS.draw}`, "Full-time"],
+            ["Clean sheet", `+${POINTS.cleanSheet}`, "Full-time"],
+          ].map(([event, pts, when]) => (
+            <div
+              key={event}
+              className="flex items-center justify-between border-b border-white/5 px-4 py-2.5 text-sm last:border-b-0"
+            >
+              <span>{event}</span>
+              <div className="flex items-center gap-4">
+                <span className="font-black text-gold">{pts}</span>
+                <span className="text-xs text-white/40">{when}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Helpers ───────────────────────────────────────────────────────── */
+
 function goalsForTeam(teamId: number, matches: MatchRow[]): number {
   let g = 0;
   for (const m of matches) {

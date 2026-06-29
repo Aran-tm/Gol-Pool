@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { ArrowLeft, Copy, Check, Zap } from "lucide-react";
@@ -8,7 +9,8 @@ import { SELECTED_LEAGUES } from "../lib/txlineConfig";
 
 const KNOWN_TX_SIG = "";
 
-export default function Setup({ onBack }: { onBack?: () => void }) {
+export default function Setup() {
+  const navigate = useNavigate();
   const { publicKey, sendTransaction, signMessage, connected } = useWallet();
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
@@ -79,7 +81,7 @@ export default function Setup({ onBack }: { onBack?: () => void }) {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 py-8">
-      <button onClick={onBack} className="mb-5 flex w-fit items-center gap-1 text-sm text-white/60 transition hover:text-white">
+      <button onClick={() => navigate(-1)} className="mb-5 flex w-fit items-center gap-1 text-sm text-white/60 transition hover:text-white">
         <ArrowLeft className="h-4 w-4" /> Back
       </button>
 
