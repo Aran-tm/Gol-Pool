@@ -6,6 +6,7 @@ import { Trophy, ChevronRight, Plus, LogIn } from "lucide-react";
 import PageTransition from "../components/PageTransition";
 import MatchCard from "../components/MatchCard";
 import EmptyState from "../components/EmptyState";
+import Skeleton from "../components/Skeleton";
 import { LiveBadge } from "../components/ui";
 import { getMyPools, getMatches, subscribeMatches, getPoolMemberCount, type Pool } from "../lib/api";
 import { isLive } from "../lib/txline";
@@ -14,7 +15,6 @@ import type { MatchRow } from "../lib/scoring";
 interface PoolCard {
   pool: Pool;
   memberCount: number;
-  liveMatches: number;
 }
 
 export default function Dashboard() {
@@ -24,23 +24,25 @@ export default function Dashboard() {
 
   const [pools, setPools] = useState<PoolCard[]>([]);
   const [matches, setMatches] = useState<MatchRow[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async () => {
     if (!wallet) return;
     const [p, m] = await Promise.all([getMyPools(wallet), getMatches()]);
     setMatches(m);
 
-    // Enrich pools with member count + live match indicator.
+    // Enrich pools with member count.
     const enriched = await Promise.all(
       p.map(async (pool) => {
         let count = 0;
         try {
           count = await getPoolMemberCount(pool.id);
         } catch { /* ignore */ }
-        return { pool, memberCount: count, liveMatches: 0 };
+        return { pool, memberCount: count };
       }),
     );
     setPools(enriched);
+    setLoaded(true);
   }, [wallet]);
 
   useEffect(() => {
@@ -120,7 +122,9 @@ export default function Dashboard() {
         </div>
 
         <div className="mt-3 space-y-2">
-          {pools.length === 0 ? (
+          {!loaded ? (
+            <Skeleton rows={2} />
+          ) : pools.length === 0 ? (
             <EmptyState
               icon={Trophy}
               title="No pools yet"

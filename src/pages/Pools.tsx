@@ -6,6 +6,7 @@ import { Plus, LogIn, ChevronRight, Trophy, Users } from "lucide-react";
 import { createPool, joinPool, getMyPools, getPoolMemberCount, type Pool } from "../lib/api";
 import { Label } from "../components/ui";
 import EmptyState from "../components/EmptyState";
+import Skeleton from "../components/Skeleton";
 import PageTransition from "../components/PageTransition";
 
 interface PoolCard {
@@ -23,6 +24,7 @@ export default function Pools() {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [loaded, setLoaded] = useState(false);
 
   async function refresh() {
     if (!wallet) return;
@@ -40,6 +42,8 @@ export default function Pools() {
       setPools(enriched);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoaded(true);
     }
   }
   useEffect(() => {
@@ -147,7 +151,8 @@ export default function Pools() {
       <div className="mt-8">
         <Label>My pools</Label>
         <div className="mt-3 space-y-2">
-          {pools.length === 0 && (
+          {!loaded && <Skeleton rows={2} />}
+          {loaded && pools.length === 0 && (
             <EmptyState
               icon={Trophy}
               title="No pools yet"

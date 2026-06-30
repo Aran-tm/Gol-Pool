@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import PageTransition from "../components/PageTransition";
 import MatchCard from "../components/MatchCard";
 import EmptyState from "../components/EmptyState";
+import Skeleton from "../components/Skeleton";
 import { getMatches, subscribeMatches } from "../lib/api";
 import { isLive, isFinished } from "../lib/txline";
 import type { MatchRow } from "../lib/scoring";
@@ -19,9 +20,11 @@ const FILTERS: { key: Filter; label: string }[] = [
 export default function MatchCenter() {
   const [matches, setMatches] = useState<MatchRow[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
+  const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async () => {
     setMatches(await getMatches());
+    setLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -102,7 +105,9 @@ export default function MatchCenter() {
 
       {/* Match list */}
       <div className="mt-5 space-y-6">
-        {filtered.length === 0 ? (
+        {!loaded ? (
+          <Skeleton rows={5} />
+        ) : filtered.length === 0 ? (
           <EmptyState
             icon={Radio}
             title={`No ${filter} matches`}

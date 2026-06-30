@@ -1,12 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { Settings, HelpCircle, RefreshCw, Trophy, Users, Star } from "lucide-react";
+import { HelpCircle, RefreshCw, Trophy, Users, Star } from "lucide-react";
 import PageTransition from "../components/PageTransition";
 import { getMyPools, getMatches, getAssignments, updateDisplayName, type Assignment } from "../lib/api";
 import { memberPoints } from "../lib/scoring";
 import { flag } from "../lib/flags";
 import Avatar from "../components/Avatar";
+import Skeleton from "../components/Skeleton";
 
 const short = (w: string) => `${w.slice(0, 4)}…${w.slice(-4)}`;
 
@@ -19,6 +20,7 @@ export default function Profile() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [stats, setStats] = useState({ pools: 0, points: 0, bestTeam: "", totalTeams: 0 });
+  const [loaded, setLoaded] = useState(false);
 
   const loadStats = useCallback(async () => {
     if (!wallet) return;
@@ -60,7 +62,9 @@ export default function Profile() {
         bestTeam,
         totalTeams: myTeamIds.length,
       });
-    } catch { /* ignore */ }
+    } catch { /* ignore */ } finally {
+      setLoaded(true);
+    }
   }, [wallet]);
 
   useEffect(() => {
@@ -139,26 +143,30 @@ export default function Profile() {
       </section>
 
       {/* Stats */}
-      <section className="mt-4 grid grid-cols-3 gap-3">
-        {[
-          { icon: Trophy, label: "Pools", value: stats.pools },
-          { icon: Star, label: "Points", value: stats.points },
-          { icon: Users, label: "Teams", value: stats.totalTeams },
-        ].map((s) => (
-          <div
-            key={s.label}
-            className="glass flex flex-col items-center gap-1 rounded-2xl px-2 py-4"
-          >
-            <s.icon className="h-4 w-4 text-grass" />
-            <span className="text-xl font-black text-gold">{s.value}</span>
-            <span className="text-[10px] uppercase tracking-wide text-white/50">
-              {s.label}
-            </span>
-          </div>
-        ))}
-      </section>
+      {!loaded ? (
+        <Skeleton rows={1} className="mt-4 [&>div]:h-[88px]" />
+      ) : (
+        <section className="mt-4 grid grid-cols-3 gap-3">
+          {[
+            { icon: Trophy, label: "Pools", value: stats.pools },
+            { icon: Star, label: "Points", value: stats.points },
+            { icon: Users, label: "Teams", value: stats.totalTeams },
+          ].map((s) => (
+            <div
+              key={s.label}
+              className="glass flex flex-col items-center gap-1 rounded-2xl px-2 py-4"
+            >
+              <s.icon className="h-4 w-4 text-grass" />
+              <span className="text-xl font-black text-gold">{s.value}</span>
+              <span className="text-[10px] uppercase tracking-wide text-white/50">
+                {s.label}
+              </span>
+            </div>
+          ))}
+        </section>
+      )}
 
-      {stats.bestTeam && (
+      {loaded && stats.bestTeam && (
         <div className="mt-3 rounded-2xl border border-gold/20 bg-gold/[0.04] p-4 text-center">
           <p className="text-xs text-white/50">Best performing team</p>
           <p className="mt-1 text-sm font-bold text-gold">
@@ -183,19 +191,6 @@ export default function Profile() {
         >
           <RefreshCw className="h-5 w-5 text-white/50" />
           <span className="text-sm font-semibold">Show intro again</span>
-        </button>
-
-        <button
-          onClick={() => navigate("/setup")}
-          className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-white/30"
-        >
-          <Settings className="h-5 w-5 text-white/50" />
-          <div>
-            <div className="text-sm font-semibold">TxLINE data setup</div>
-            <div className="text-[10px] text-white/40">
-              Re-subscribe or change network
-            </div>
-          </div>
         </button>
       </section>
 
