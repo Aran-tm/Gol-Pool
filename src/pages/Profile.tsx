@@ -6,6 +6,7 @@ import PageTransition from "../components/PageTransition";
 import { getMyPools, getMatches, getAssignments, updateDisplayName, type Assignment } from "../lib/api";
 import { memberPoints } from "../lib/scoring";
 import { flag } from "../lib/flags";
+import Avatar from "../components/Avatar";
 
 const short = (w: string) => `${w.slice(0, 4)}…${w.slice(-4)}`;
 
@@ -91,9 +92,7 @@ export default function Profile() {
       {/* Identity */}
       <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.04] p-5">
         <div className="flex items-center gap-4">
-          <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-grass/15">
-            <span className="text-2xl">⚽</span>
-          </div>
+          <Avatar wallet={wallet} name={displayName} size={56} className="!rounded-2xl" />
           <div className="min-w-0 flex-1">
             {editing ? (
               <div className="flex items-center gap-2">

@@ -197,7 +197,7 @@ export default function MatchDetail() {
         <div className="grid grid-cols-2 gap-3 text-xs">
           <div>
             <span className="text-white/40">Competition</span>
-            <p className="font-semibold">{match.home_team.includes("vs") ? "World Cup 2026" : "World Cup 2026"}</p>
+            <p className="font-semibold">World Cup 2026</p>
           </div>
           <div>
             <span className="text-white/40">Fixture ID</span>

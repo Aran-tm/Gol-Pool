@@ -147,6 +147,18 @@ export async function getPoolMemberCount(poolId: string): Promise<number> {
   return count ?? 0;
 }
 
+/** Fetch display names for a set of wallets → Map<wallet, name>. Wallets with no name are omitted. */
+export async function getProfiles(wallets: string[]): Promise<Map<string, string>> {
+  if (wallets.length === 0) return new Map();
+  const { data } = await supabase
+    .from("profiles")
+    .select("wallet_address,display_name")
+    .in("wallet_address", wallets);
+  const map = new Map<string, string>();
+  for (const p of data ?? []) if (p.display_name) map.set(p.wallet_address, p.display_name);
+  return map;
+}
+
 /** Update (or clear) a user's display name. */
 export async function updateDisplayName(wallet: string, name: string): Promise<void> {
   await supabase

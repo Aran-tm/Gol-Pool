@@ -52,7 +52,7 @@ export default function Pools() {
     setError("");
     try {
       const p = await createPool(name.trim(), wallet);
-      navigate(`/pools/${p.id}`);
+      navigate(`/pools/${p.id}`, { state: { reveal: true } });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -65,7 +65,7 @@ export default function Pools() {
     setError("");
     try {
       const p = await joinPool(code.trim(), wallet);
-      navigate(`/pools/${p.id}`);
+      navigate(`/pools/${p.id}`, { state: { reveal: true } });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {

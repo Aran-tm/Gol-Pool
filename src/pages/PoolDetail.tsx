@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
@@ -9,6 +9,7 @@ import {
   getMembers,
   getAssignments,
   getMatches,
+  getProfiles,
   subscribeMatches,
   type Pool,
   type Member,
@@ -19,6 +20,8 @@ import { isLive } from "../lib/txline";
 import { flag } from "../lib/flags";
 import { AnimatedNumber, LiveBadge, Label } from "../components/ui";
 import TeamBadge from "../components/TeamBadge";
+import Avatar from "../components/Avatar";
+import TeamReveal from "../components/TeamReveal";
 import EmptyState from "../components/EmptyState";
 
 const short = (w: string) => `${w.slice(0, 4)}…${w.slice(-4)}`;
@@ -49,6 +52,7 @@ interface Row {
 export default function PoolDetail() {
   const { poolId } = useParams<{ poolId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { publicKey } = useWallet();
   const me = publicKey?.toBase58() ?? "";
 
@@ -57,8 +61,11 @@ export default function PoolDetail() {
   const [members, setMembers] = useState<Member[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [matches, setMatches] = useState<MatchRow[]>([]);
+  const [names, setNames] = useState<Map<string, string>>(new Map());
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  // Show the team-reveal once when arriving straight from create/join.
+  const [reveal, setReveal] = useState(() => Boolean((location.state as { reveal?: boolean } | null)?.reveal));
   const goalsRef = useRef<Map<number, number>>(new Map());
 
   const loadStatic = useCallback(async () => {
@@ -71,6 +78,7 @@ export default function PoolDetail() {
     setPool(p);
     setMembers(m);
     setAssignments(a);
+    setNames(await getProfiles(m.map((x) => x.wallet_address)));
   }, [poolId]);
   const loadMatches = useCallback(async () => setMatches(await getMatches()), []);
 
@@ -130,6 +138,13 @@ export default function PoolDetail() {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pt-8 pb-24">
+      {/* Team reveal — fires once after creating/joining a pool */}
+      <AnimatePresence>
+        {reveal && myTeams.length > 0 && (
+          <TeamReveal teams={myTeams} onDone={() => setReveal(false)} />
+        )}
+      </AnimatePresence>
+
       {/* Goal toast */}
       <AnimatePresence>
         {toast && (
@@ -213,7 +228,7 @@ export default function PoolDetail() {
 
       {/* Tab content */}
       <div className="mt-5">
-        {tab === "leaderboard" && <LeaderboardTab rows={rows} me={me} liveMatches={liveMatches.length} />}
+        {tab === "leaderboard" && <LeaderboardTab rows={rows} me={me} names={names} liveMatches={liveMatches.length} />}
         {tab === "my-teams" && <MyTeamsTab myTeams={myTeams} matches={matches} />}
         {tab === "rules" && <RulesTab pool={pool} membersCount={members.length} />}
       </div>
@@ -223,7 +238,7 @@ export default function PoolDetail() {
 
 /* ── Tab: Leaderboard ──────────────────────────────────────────────── */
 
-function LeaderboardTab({ rows, me, liveMatches }: { rows: Row[]; me: string; liveMatches: number }) {
+function LeaderboardTab({ rows, me, names, liveMatches }: { rows: Row[]; me: string; names: Map<string, string>; liveMatches: number }) {
   return (
     <>
       <div className="flex items-center justify-between">
@@ -233,6 +248,7 @@ function LeaderboardTab({ rows, me, liveMatches }: { rows: Row[]; me: string; li
       <div className="mt-3 space-y-2.5">
         {rows.map((r, i) => {
           const isMe = r.wallet === me;
+          const name = names.get(r.wallet);
           return (
             <motion.div
               layout
@@ -246,7 +262,7 @@ function LeaderboardTab({ rows, me, liveMatches }: { rows: Row[]; me: string; li
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="grid h-8 w-8 place-items-center text-lg">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center text-lg">
                     {i === 0 ? (
                       <Crown className="h-5 w-5 text-gold" />
                     ) : (
@@ -255,8 +271,9 @@ function LeaderboardTab({ rows, me, liveMatches }: { rows: Row[]; me: string; li
                       )
                     )}
                   </span>
-                  <span className="font-mono text-sm">
-                    {short(r.wallet)}
+                  <Avatar wallet={r.wallet} name={name} size={32} />
+                  <span className="text-sm font-semibold">
+                    {name ?? short(r.wallet)}
                     {isMe && <span className="ml-1 text-grass">you</span>}
                   </span>
                 </div>
