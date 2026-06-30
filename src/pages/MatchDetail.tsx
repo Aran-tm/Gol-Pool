@@ -6,7 +6,7 @@ import { LiveBadge } from "../components/ui";
 import { supabase } from "../lib/supabase";
 import { getMatches } from "../lib/api";
 import { isLive, isFinished, GAME_STATE } from "../lib/txline";
-import { flag } from "../lib/flags";
+import Flag from "../components/Flag";
 import type { MatchRow } from "../lib/scoring";
 
 interface MatchEvent {
@@ -119,7 +119,7 @@ export default function MatchDetail() {
         <div className="mt-3 flex items-center justify-center gap-6">
           {/* Home */}
           <div className="flex flex-col items-center gap-2">
-            <span className="text-4xl">{flag(match.home_team)}</span>
+            <Flag name={match.home_team} className="text-4xl" />
             <span className="text-sm font-bold">{match.home_team}</span>
           </div>
 
@@ -136,7 +136,7 @@ export default function MatchDetail() {
 
           {/* Away */}
           <div className="flex flex-col items-center gap-2">
-            <span className="text-4xl">{flag(match.away_team)}</span>
+            <Flag name={match.away_team} className="text-4xl" />
             <span className="text-sm font-bold">{match.away_team}</span>
           </div>
         </div>
@@ -175,8 +175,8 @@ export default function MatchDetail() {
                       ⚽
                     </span>
                     <div className="flex-1">
-                      <span className="text-sm font-semibold">
-                        {flag(String(teamName))} {String(teamName)}
+                      <span className="inline-flex items-center gap-1.5 text-sm font-semibold">
+                        <Flag name={String(teamName)} className="text-[13px]" /> {String(teamName)}
                       </span>
                       <span className="ml-2 text-xs text-white/40">scores</span>
                     </div>

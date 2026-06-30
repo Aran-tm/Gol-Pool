@@ -5,7 +5,7 @@ import { HelpCircle, RefreshCw, Trophy, Users, Star } from "lucide-react";
 import PageTransition from "../components/PageTransition";
 import { getMyPools, getMatches, getAssignments, updateDisplayName, type Assignment } from "../lib/api";
 import { memberPoints } from "../lib/scoring";
-import { flag } from "../lib/flags";
+import Flag from "../components/Flag";
 import Avatar from "../components/Avatar";
 import Skeleton from "../components/Skeleton";
 
@@ -169,8 +169,8 @@ export default function Profile() {
       {loaded && stats.bestTeam && (
         <div className="mt-3 rounded-2xl border border-gold/20 bg-gold/[0.04] p-4 text-center">
           <p className="text-xs text-white/50">Best performing team</p>
-          <p className="mt-1 text-sm font-bold text-gold">
-            {flag(stats.bestTeam)} {stats.bestTeam}
+          <p className="mt-1 inline-flex items-center gap-2 text-sm font-bold text-gold">
+            <Flag name={stats.bestTeam} className="text-base" /> {stats.bestTeam}
           </p>
         </div>
       )}

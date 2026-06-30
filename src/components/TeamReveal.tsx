@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { motion } from "framer-motion";
 import confetti from "canvas-confetti";
-import { flag } from "../lib/flags";
+import Flag from "./Flag";
 
 interface Props {
   teams: { id: number; name: string }[];
@@ -53,7 +53,7 @@ export default function TeamReveal({ teams, onDone }: Props) {
             transition={{ delay: 0.25 + i * 0.18, type: "spring", stiffness: 260, damping: 18 }}
             className="flex flex-col items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] p-4 shadow-card"
           >
-            <span className="text-4xl drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]">{flag(t.name)}</span>
+            <Flag name={t.name} className="text-4xl drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]" />
             <span className="text-center text-sm font-bold">{t.name}</span>
           </motion.div>
         ))}

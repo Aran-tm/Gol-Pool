@@ -17,9 +17,9 @@ import {
 } from "../lib/api";
 import { memberPoints, teamPoints, POINTS, type MatchRow } from "../lib/scoring";
 import { isLive } from "../lib/txline";
-import { flag } from "../lib/flags";
 import { AnimatedNumber, LiveBadge, Label } from "../components/ui";
 import TeamBadge from "../components/TeamBadge";
+import Flag from "../components/Flag";
 import Avatar from "../components/Avatar";
 import TeamReveal from "../components/TeamReveal";
 import EmptyState from "../components/EmptyState";
@@ -111,7 +111,7 @@ export default function PoolDetail() {
     goalsRef.current = next;
     if (scored) {
       celebrate();
-      setToast(`GOOOAL!  ${flag(scored.name)}  ${scored.name}`);
+      setToast(`GOOOAL!  ${scored.name}`);
       const id = setTimeout(() => setToast(null), 3200);
       return () => clearTimeout(id);
     }
@@ -192,13 +192,13 @@ export default function PoolDetail() {
           {liveMatches.map((m) => (
             <div key={m.fixture_id} className="flex items-center justify-between text-xs">
               <span className="flex items-center gap-1.5">
-                {flag(m.home_team)} {m.home_team}
+                <Flag name={m.home_team} className="text-[13px]" /> {m.home_team}
               </span>
               <span className="font-black tabular-nums text-gold">
                 {m.home_goals} – {m.away_goals}
               </span>
               <span className="flex items-center gap-1.5">
-                {m.away_team} {flag(m.away_team)}
+                {m.away_team} <Flag name={m.away_team} className="text-[13px]" />
               </span>
             </div>
           ))}
@@ -320,7 +320,7 @@ function MyTeamsTab({ myTeams, matches }: { myTeams: { id: number; name: string 
           <div key={team.id} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-2xl">{flag(team.name)}</span>
+                <Flag name={team.name} className="text-2xl" />
                 <span className="font-bold">{team.name}</span>
               </div>
               <span className="text-xl font-black text-gold">{pts} pts</span>

@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { isLive, isFinished, GAME_STATE } from "../lib/txline";
-import { flag } from "../lib/flags";
+import Flag from "./Flag";
 import type { MatchRow } from "../lib/scoring";
 import { LiveBadge } from "./ui";
 
@@ -29,8 +29,8 @@ export default function MatchCard({ match, compact }: Props) {
         onClick={() => navigate(`/matches/${match.fixture_id}`)}
         className="flex shrink-0 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 transition hover:border-grass/40"
       >
-        <span className="text-xs">
-          {flag(match.home_team)} {match.home_team}
+        <span className="flex items-center gap-1.5 text-xs">
+          <Flag name={match.home_team} className="text-[13px]" /> {match.home_team}
         </span>
         {started ? (
           <span className="text-xs font-black tabular-nums text-gold">
@@ -39,8 +39,8 @@ export default function MatchCard({ match, compact }: Props) {
         ) : (
           <span className="text-[10px] text-white/30">vs</span>
         )}
-        <span className="text-xs">
-          {match.away_team} {flag(match.away_team)}
+        <span className="flex items-center gap-1.5 text-xs">
+          {match.away_team} <Flag name={match.away_team} className="text-[13px]" />
         </span>
         {live && <LiveBadge className="!text-[9px] !px-1.5 !py-0" />}
       </button>
@@ -53,7 +53,7 @@ export default function MatchCard({ match, compact }: Props) {
       className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-grass/40"
     >
       <div className="flex items-center gap-2.5">
-        <span className="text-lg">{flag(match.home_team)}</span>
+        <Flag name={match.home_team} className="text-xl" />
         <span className="text-sm font-semibold">{match.home_team}</span>
       </div>
 
@@ -77,7 +77,7 @@ export default function MatchCard({ match, compact }: Props) {
 
       <div className="flex items-center gap-2.5">
         <span className="text-sm font-semibold">{match.away_team}</span>
-        <span className="text-lg">{flag(match.away_team)}</span>
+        <Flag name={match.away_team} className="text-xl" />
       </div>
     </button>
   );
