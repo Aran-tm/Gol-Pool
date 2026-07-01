@@ -1,5 +1,7 @@
-// Deterministic gradient avatar from a wallet address. 0 deps.
-// Same wallet → same colors forever, so a player is visually recognizable across pools.
+// Avatar: shows a chosen NFT image when `src` is set, else a deterministic gradient
+// (same wallet → same colors forever). Falls back to the gradient if the image fails.
+
+import { useState } from "react";
 
 function hash(s: string): number {
   let h = 0;
@@ -12,9 +14,25 @@ interface Props {
   name?: string;
   size?: number;
   className?: string;
+  /** Optional image (e.g. an NFT). Falls back to the gradient on load error. */
+  src?: string | null;
 }
 
-export default function Avatar({ wallet, name, size = 36, className }: Props) {
+export default function Avatar({ wallet, name, size = 36, className, src }: Props) {
+  const [broken, setBroken] = useState(false);
+
+  if (src && !broken) {
+    return (
+      <img
+        src={src}
+        alt={name ?? "avatar"}
+        onError={() => setBroken(true)}
+        className={`inline-block shrink-0 rounded-full object-cover ${className ?? ""}`}
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+
   const h = hash(wallet);
   const hue1 = h % 360;
   const hue2 = (hue1 + 55) % 360;

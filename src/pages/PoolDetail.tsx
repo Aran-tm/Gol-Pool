@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
-import { ArrowLeft, Copy, Check, Crown, Users, Shield, Radio } from "lucide-react";
+import { ArrowLeft, Copy, Check, Crown, Users, Shield, Radio, Lock, Unlock, Trash2 } from "lucide-react";
 import {
   getPool,
   getMembers,
@@ -11,12 +11,15 @@ import {
   getMatches,
   getProfiles,
   getGoalEvents,
+  setPoolStatus,
+  deletePool,
   subscribeMatches,
   subscribeEvents,
   type Pool,
   type Member,
   type Assignment,
   type GoalEvent,
+  type ProfileInfo,
 } from "../lib/api";
 import { memberPoints, teamPoints, POINTS, type MatchRow } from "../lib/scoring";
 import { isLive, isFinished } from "../lib/txline";
@@ -25,12 +28,16 @@ import TeamBadge from "../components/TeamBadge";
 import Flag from "../components/Flag";
 import MatchMinute from "../components/MatchMinute";
 import Avatar from "../components/Avatar";
+import PoolCover from "../components/PoolCover";
 import TeamReveal from "../components/TeamReveal";
 import ChampionCelebration from "../components/ChampionCelebration";
 import EmptyState from "../components/EmptyState";
 
 const short = (w: string) => `${w.slice(0, 4)}…${w.slice(-4)}`;
-const nameOf = (wallet: string, names: Map<string, string>) => names.get(wallet) ?? short(wallet);
+const nameOf = (wallet: string, names: Map<string, ProfileInfo>) =>
+  names.get(wallet)?.display_name ?? short(wallet);
+const avatarOf = (wallet: string, names: Map<string, ProfileInfo>) =>
+  names.get(wallet)?.avatar_url ?? undefined;
 
 type Tab = "leaderboard" | "feed" | "my-teams" | "rules";
 const TABS: { key: Tab; label: string; icon: React.FC<{ className?: string }> }[] = [
@@ -68,7 +75,7 @@ export default function PoolDetail() {
   const [members, setMembers] = useState<Member[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [matches, setMatches] = useState<MatchRow[]>([]);
-  const [names, setNames] = useState<Map<string, string>>(new Map());
+  const [names, setNames] = useState<Map<string, ProfileInfo>>(new Map());
   const [feed, setFeed] = useState<GoalEvent[]>([]);
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -201,6 +208,28 @@ export default function PoolDetail() {
     setChamp(rows[0]);
   }, [rows, matches, poolFixtureIds, poolId]);
 
+  const isOwner = !!pool && pool.owner_wallet === me;
+
+  async function handleToggleLock() {
+    if (!pool) return;
+    try {
+      await setPoolStatus(pool.id, me, pool.status === "open" ? "locked" : "open");
+      await loadStatic();
+    } catch (e) {
+      console.warn("toggle lock:", e);
+    }
+  }
+
+  async function handleDelete() {
+    if (!pool) return;
+    try {
+      await deletePool(pool.id, me);
+      navigate("/pools", { replace: true });
+    } catch (e) {
+      console.warn("delete pool:", e);
+    }
+  }
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pt-8 pb-24">
       {/* Team reveal — fires once after creating/joining a pool */}
@@ -216,6 +245,7 @@ export default function PoolDetail() {
           <ChampionCelebration
             name={nameOf(champ.wallet, names)}
             wallet={champ.wallet}
+            avatarUrl={avatarOf(champ.wallet, names)}
             points={champ.points}
             poolName={pool?.name ?? "Pool"}
             onDone={() => setChamp(null)}
@@ -239,10 +269,23 @@ export default function PoolDetail() {
 
       <button
         onClick={() => navigate("/pools")}
-        className="mb-5 flex w-fit items-center gap-1 text-sm text-white/60 transition hover:text-white"
+        className="mb-4 flex w-fit items-center gap-1 text-sm text-white/60 transition hover:text-white"
       >
         <ArrowLeft className="h-4 w-4" /> Pools
       </button>
+
+      {/* Cover banner */}
+      {pool && (
+        <div className="relative mb-4 h-24 overflow-hidden rounded-2xl border border-white/10">
+          <PoolCover poolId={pool.id} w={800} h={240} className="h-full w-full" />
+          <div className="absolute inset-0 bg-gradient-to-t from-ink-950/90 via-ink-950/30 to-transparent" />
+          {pool.status && pool.status !== "open" && (
+            <span className="absolute right-2 top-2 rounded-full border border-white/20 bg-ink-950/70 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white/70">
+              Locked
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="flex items-start justify-between gap-3">
         <h1 className="text-3xl font-black leading-tight">{pool?.name ?? "…"}</h1>
@@ -312,7 +355,15 @@ export default function PoolDetail() {
         {tab === "leaderboard" && <LeaderboardTab rows={rows} me={me} names={names} bumps={bumps} liveMatches={liveMatches.length} />}
         {tab === "feed" && <FeedTab feed={feed} teamOwner={teamOwner} names={names} />}
         {tab === "my-teams" && <MyTeamsTab myTeams={myTeams} matches={matches} />}
-        {tab === "rules" && <RulesTab pool={pool} membersCount={members.length} />}
+        {tab === "rules" && (
+          <RulesTab
+            pool={pool}
+            membersCount={members.length}
+            isOwner={isOwner}
+            onToggleLock={handleToggleLock}
+            onDelete={handleDelete}
+          />
+        )}
       </div>
     </main>
   );
@@ -329,7 +380,7 @@ function LeaderboardTab({
 }: {
   rows: Row[];
   me: string;
-  names: Map<string, string>;
+  names: Map<string, ProfileInfo>;
   bumps: Map<string, { delta: number; key: number }>;
   liveMatches: number;
 }) {
@@ -345,7 +396,8 @@ function LeaderboardTab({
       <div className="mt-3 space-y-2.5">
         {rows.map((r, i) => {
           const isMe = r.wallet === me;
-          const name = names.get(r.wallet);
+          const name = names.get(r.wallet)?.display_name ?? undefined;
+          const avatar = names.get(r.wallet)?.avatar_url ?? undefined;
           const bump = bumps.get(r.wallet);
           return (
             <motion.div
@@ -371,7 +423,7 @@ function LeaderboardTab({
                       )
                     )}
                   </span>
-                  <Avatar wallet={r.wallet} name={name} size={32} />
+                  <Avatar wallet={r.wallet} name={name} src={avatar} size={32} />
                   <span className="text-sm font-semibold">
                     {name ?? short(r.wallet)}
                     {isMe && <span className="ml-1 text-grass">you</span>}
@@ -414,7 +466,7 @@ function LeaderboardTab({
 
 /* ── Podium (top 3) ────────────────────────────────────────────────── */
 
-function Podium({ rows, names, me }: { rows: Row[]; names: Map<string, string>; me: string }) {
+function Podium({ rows, names, me }: { rows: Row[]; names: Map<string, ProfileInfo>; me: string }) {
   // Visual order: 2nd, 1st, 3rd.
   const slots = [
     { r: rows[1], place: 2, h: "h-16", ring: "ring-white/30", medal: "🥈" },
@@ -427,7 +479,7 @@ function Podium({ rows, names, me }: { rows: Row[]; names: Map<string, string>; 
         <div key={place} className="flex flex-1 flex-col items-center">
           <span className="mb-1 text-lg">{medal}</span>
           <div className={`rounded-full ring-2 ${ring}`}>
-            <Avatar wallet={r.wallet} name={names.get(r.wallet)} size={place === 1 ? 52 : 40} />
+            <Avatar wallet={r.wallet} name={nameOf(r.wallet, names)} src={avatarOf(r.wallet, names)} size={place === 1 ? 52 : 40} />
           </div>
           <span className="mt-1.5 max-w-[6.5rem] truncate text-center text-xs font-semibold">
             {nameOf(r.wallet, names)}
@@ -454,7 +506,7 @@ function FeedTab({
 }: {
   feed: GoalEvent[];
   teamOwner: Map<number, string>;
-  names: Map<string, string>;
+  names: Map<string, ProfileInfo>;
 }) {
   const owned = feed.filter((e) => teamOwner.has(e.team_id));
   if (owned.length === 0) {
@@ -556,7 +608,21 @@ function MyTeamsTab({ myTeams, matches }: { myTeams: { id: number; name: string 
 
 /* ── Tab: Rules ────────────────────────────────────────────────────── */
 
-function RulesTab({ pool, membersCount }: { pool: Pool | null; membersCount: number }) {
+function RulesTab({
+  pool,
+  membersCount,
+  isOwner,
+  onToggleLock,
+  onDelete,
+}: {
+  pool: Pool | null;
+  membersCount: number;
+  isOwner: boolean;
+  onToggleLock: () => void;
+  onDelete: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const locked = pool?.status && pool.status !== "open";
   return (
     <div className="space-y-4">
       {/* Pool info */}
@@ -605,6 +671,45 @@ function RulesTab({ pool, membersCount }: { pool: Pool | null; membersCount: num
           ))}
         </div>
       </div>
+
+      {/* Danger zone — owner only */}
+      {isOwner && (
+        <div className="rounded-2xl border border-red-500/25 bg-red-500/[0.04] p-4">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-red-300/80">Owner controls</h3>
+          <div className="mt-3 space-y-2">
+            <button
+              onClick={onToggleLock}
+              className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-left text-sm font-semibold transition hover:border-white/30"
+            >
+              {locked ? <Unlock className="h-4 w-4 text-grass" /> : <Lock className="h-4 w-4 text-gold" />}
+              {locked ? "Reopen pool (allow new players)" : "Close pool (no new players)"}
+            </button>
+
+            {confirming ? (
+              <div className="rounded-xl border border-red-500/40 bg-red-500/[0.08] p-3">
+                <p className="text-sm font-semibold text-red-200">Delete this pool for everyone?</p>
+                <p className="mt-0.5 text-xs text-white/50">This can't be undone.</p>
+                <div className="mt-3 flex gap-2">
+                  <button onClick={onDelete} className="flex-1 rounded-xl bg-red-500 py-2 text-sm font-bold text-white transition hover:brightness-110">
+                    Yes, delete
+                  </button>
+                  <button onClick={() => setConfirming(false)} className="flex-1 rounded-xl border border-white/15 bg-white/5 py-2 text-sm font-semibold transition hover:bg-white/10">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirming(true)}
+                className="flex w-full items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-3 text-left text-sm font-semibold text-red-300 transition hover:border-red-500/60"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete pool
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

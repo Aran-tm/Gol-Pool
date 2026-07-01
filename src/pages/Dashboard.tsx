@@ -7,9 +7,10 @@ import PageTransition from "../components/PageTransition";
 import MatchCard from "../components/MatchCard";
 import EmptyState from "../components/EmptyState";
 import Skeleton from "../components/Skeleton";
+import PoolCover from "../components/PoolCover";
 import { LiveBadge } from "../components/ui";
 import { getMyPools, getMatches, subscribeMatches, getPoolMemberCount, type Pool } from "../lib/api";
-import { isLive } from "../lib/txline";
+import { isLive, isStale } from "../lib/txline";
 import type { MatchRow } from "../lib/scoring";
 
 interface PoolCard {
@@ -53,7 +54,7 @@ export default function Dashboard() {
 
   const liveMatches = matches.filter((m) => isLive(m.game_state));
   const todayMatches = matches.filter((m) => {
-    if (!m.kickoff) return false;
+    if (!m.kickoff || isStale(m.kickoff, m.game_state)) return false;
     const d = new Date(m.kickoff);
     const now = new Date();
     return d.toDateString() === now.toDateString();
@@ -139,10 +140,11 @@ export default function Dashboard() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04 }}
                 onClick={() => navigate(`/pools/${pool.id}`)}
-                className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-grass/50"
+                className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-left transition hover:border-grass/50"
               >
-                <div>
-                  <div className="font-bold">{pool.name}</div>
+                <PoolCover poolId={pool.id} w={160} h={160} className="h-14 w-14 shrink-0 rounded-xl" />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-bold">{pool.name}</div>
                   <div className="mt-0.5 flex items-center gap-2 text-xs text-white/40">
                     <span className="font-mono text-gold">#{pool.join_code}</span>
                     <span>·</span>
@@ -151,7 +153,7 @@ export default function Dashboard() {
                     </span>
                   </div>
                 </div>
-                <ChevronRight className="h-5 w-5 text-white/30" />
+                <ChevronRight className="h-5 w-5 shrink-0 text-white/30" />
               </motion.button>
             ))
           )}

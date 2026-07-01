@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { HelpCircle, RefreshCw, Trophy, Users, Star, LogOut } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { HelpCircle, RefreshCw, Trophy, Users, Star, LogOut, Sparkles, X } from "lucide-react";
 import PageTransition from "../components/PageTransition";
-import { getMyPools, getMatches, getAssignments, updateDisplayName, type Assignment } from "../lib/api";
+import { getMyPools, getMatches, getAssignments, getProfiles, updateDisplayName, updateAvatar, type Assignment } from "../lib/api";
 import { memberPoints } from "../lib/scoring";
+import { fetchNfts, hasNftRpc, type NftItem } from "../lib/nft";
 import Flag from "../components/Flag";
 import Avatar from "../components/Avatar";
 import Skeleton from "../components/Skeleton";
@@ -12,25 +14,68 @@ import Skeleton from "../components/Skeleton";
 const short = (w: string) => `${w.slice(0, 4)}…${w.slice(-4)}`;
 
 export default function Profile() {
-  const { publicKey, disconnect } = useWallet();
+  const { publicKey, disconnect, select } = useWallet();
   const wallet = publicKey?.toBase58() ?? "";
   const navigate = useNavigate();
 
   async function handleDisconnect() {
-    // Full reset: replay onboarding on next connect, then disconnect → ProtectedRoute
-    // bounces to the landing page.
+    // Full reset: replay onboarding on next connect, then disconnect and DESELECT the
+    // wallet so autoConnect doesn't silently reconnect — the selection modal shows again.
     localStorage.removeItem("golpool_onboarded");
     try {
       await disconnect();
+      select(null);
     } catch { /* ignore */ }
+    // Belt & suspenders: the adapter remembers the last wallet under this key.
+    localStorage.removeItem("walletName");
     navigate("/", { replace: true });
   }
 
   const [displayName, setDisplayName] = useState("");
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [stats, setStats] = useState({ pools: 0, points: 0, bestTeam: "", totalTeams: 0 });
   const [loaded, setLoaded] = useState(false);
+
+  // NFT avatar picker
+  const [picking, setPicking] = useState(false);
+  const [nfts, setNfts] = useState<NftItem[]>([]);
+  const [nftState, setNftState] = useState<"idle" | "loading" | "error" | "done">("idle");
+  const [nftError, setNftError] = useState("");
+
+  // Load own profile (name + avatar).
+  useEffect(() => {
+    if (!wallet) return;
+    getProfiles([wallet]).then((m) => {
+      const p = m.get(wallet);
+      if (p?.display_name) setDisplayName(p.display_name);
+      setAvatarUrl(p?.avatar_url ?? null);
+    });
+  }, [wallet]);
+
+  async function openPicker() {
+    setPicking(true);
+    if (nfts.length > 0) return;
+    setNftState("loading");
+    setNftError("");
+    try {
+      const items = await fetchNfts(wallet);
+      setNfts(items);
+      setNftState("done");
+    } catch (e) {
+      setNftError(e instanceof Error ? e.message : String(e));
+      setNftState("error");
+    }
+  }
+
+  async function chooseAvatar(url: string | null) {
+    setAvatarUrl(url);
+    setPicking(false);
+    try {
+      await updateAvatar(wallet, url);
+    } catch { /* ignore */ }
+  }
 
   const loadStats = useCallback(async () => {
     if (!wallet) return;
@@ -106,7 +151,16 @@ export default function Profile() {
       {/* Identity */}
       <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.04] p-5">
         <div className="flex items-center gap-4">
-          <Avatar wallet={wallet} name={displayName} size={56} className="!rounded-2xl" />
+          <button
+            onClick={openPicker}
+            className="relative shrink-0 transition hover:brightness-110"
+            title="Choose an NFT avatar"
+          >
+            <Avatar wallet={wallet} name={displayName} src={avatarUrl} size={56} className="!rounded-2xl" />
+            <span className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full border border-ink-900 bg-grass text-ink-950">
+              <Sparkles className="h-3 w-3" />
+            </span>
+          </button>
           <div className="min-w-0 flex-1">
             {editing ? (
               <div className="flex items-center gap-2">
@@ -215,6 +269,67 @@ export default function Profile() {
       <p className="mt-auto pt-8 text-center text-[10px] text-white/25">
         Powered by TxLINE · Built on Solana
       </p>
+
+      {/* NFT avatar picker */}
+      <AnimatePresence>
+        {picking && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setPicking(false)}
+            className="fixed inset-0 z-[60] flex items-end justify-center bg-ink-950/80 backdrop-blur-sm sm:items-center"
+          >
+            <motion.div
+              initial={{ y: 40, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 40, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="glass-strong max-h-[75vh] w-full max-w-md overflow-y-auto rounded-t-3xl p-5 sm:rounded-3xl"
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="font-bold">Choose your avatar</h3>
+                <button onClick={() => setPicking(false)} className="text-white/50 hover:text-white">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {!hasNftRpc() && (
+                <p className="rounded-xl border border-gold/30 bg-gold/[0.06] p-3 text-xs text-gold/90">
+                  Add a free Helius RPC to <code className="text-white">VITE_SOLANA_RPC</code> to load your NFTs. Your generated avatar is used meanwhile.
+                </p>
+              )}
+              {nftState === "loading" && <Skeleton rows={2} className="[&>div]:h-24" />}
+              {nftState === "error" && (
+                <p className="rounded-xl border border-red-500/30 bg-red-500/[0.06] p-3 text-xs text-red-300">{nftError}</p>
+              )}
+              {nftState === "done" && nfts.length === 0 && (
+                <p className="p-3 text-center text-sm text-white/50">No NFTs found in this wallet.</p>
+              )}
+
+              <div className="mt-3 grid grid-cols-3 gap-3">
+                {/* Reset to generated avatar */}
+                <button
+                  onClick={() => chooseAvatar(null)}
+                  className={`grid aspect-square place-items-center rounded-2xl border-2 bg-white/[0.03] ${!avatarUrl ? "border-grass" : "border-white/10"}`}
+                >
+                  <Avatar wallet={wallet} name={displayName} size={84} />
+                </button>
+                {nfts.map((n) => (
+                  <button
+                    key={n.id}
+                    onClick={() => chooseAvatar(n.image)}
+                    className={`aspect-square overflow-hidden rounded-2xl border-2 transition hover:brightness-110 ${avatarUrl === n.image ? "border-grass" : "border-white/10"}`}
+                    title={n.name}
+                  >
+                    <img src={n.image} alt={n.name} className="h-full w-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </PageTransition>
   );
 }

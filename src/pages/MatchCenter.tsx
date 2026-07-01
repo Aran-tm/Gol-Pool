@@ -4,7 +4,7 @@ import MatchCard from "../components/MatchCard";
 import EmptyState from "../components/EmptyState";
 import Skeleton from "../components/Skeleton";
 import { getMatches, subscribeMatches } from "../lib/api";
-import { isLive, isFinished } from "../lib/txline";
+import { isLive, isFinished, isStale } from "../lib/txline";
 import type { MatchRow } from "../lib/scoring";
 import { Radio } from "lucide-react";
 
@@ -33,18 +33,24 @@ export default function MatchCenter() {
     return unsub;
   }, [load]);
 
+  // Hide stale fixtures (past kickoff, never played) from every view.
+  const visible = useMemo(
+    () => matches.filter((m) => !isStale(m.kickoff, m.game_state)),
+    [matches],
+  );
+
   const filtered = useMemo(() => {
     switch (filter) {
       case "live":
-        return matches.filter((m) => isLive(m.game_state));
+        return visible.filter((m) => isLive(m.game_state));
       case "upcoming":
-        return matches.filter((m) => m.game_state === 1);
+        return visible.filter((m) => m.game_state === 1); // future only (stale already removed)
       case "finished":
-        return matches.filter((m) => isFinished(m.game_state));
+        return visible.filter((m) => isFinished(m.game_state));
       default:
-        return matches;
+        return visible;
     }
-  }, [matches, filter]);
+  }, [visible, filter]);
 
   // Group by matchday (simple: by date string).
   const grouped = useMemo(() => {

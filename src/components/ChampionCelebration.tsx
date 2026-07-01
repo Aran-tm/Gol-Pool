@@ -7,13 +7,14 @@ import Avatar from "./Avatar";
 interface Props {
   name: string;
   wallet: string;
+  avatarUrl?: string;
   points: number;
   poolName: string;
   onDone: () => void;
 }
 
 /** Full-screen champion celebration shown once when a pool finishes. */
-export default function ChampionCelebration({ name, wallet, points, poolName, onDone }: Props) {
+export default function ChampionCelebration({ name, wallet, avatarUrl, points, poolName, onDone }: Props) {
   useEffect(() => {
     const fire = (x: number) =>
       confetti({
@@ -53,7 +54,7 @@ export default function ChampionCelebration({ name, wallet, points, poolName, on
         transition={{ type: "spring", stiffness: 280, damping: 18, delay: 0.2 }}
         className="flex flex-col items-center gap-3"
       >
-        <Avatar wallet={wallet} name={name} size={72} />
+        <Avatar wallet={wallet} name={name} src={avatarUrl} size={72} />
         <h2 className="text-gradient text-4xl font-black">{name}</h2>
         <div className="rounded-full border border-gold/40 bg-gold/[0.08] px-5 py-1.5 text-lg font-black text-gold">
           {points} pts

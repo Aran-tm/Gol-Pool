@@ -7,6 +7,7 @@ import { createPool, joinPool, getMyPools, getPoolMemberCount, type Pool } from 
 import { Label } from "../components/ui";
 import EmptyState from "../components/EmptyState";
 import Skeleton from "../components/Skeleton";
+import PoolCover from "../components/PoolCover";
 import PageTransition from "../components/PageTransition";
 
 interface PoolCard {
@@ -166,10 +167,11 @@ export default function Pools() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.05 }}
               onClick={() => navigate(`/pools/${pool.id}`)}
-              className="group flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-grass/50 hover:bg-white/[0.07]"
+              className="group flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-left transition hover:border-grass/50 hover:bg-white/[0.07]"
             >
-              <div>
-                <div className="font-bold">{pool.name}</div>
+              <PoolCover poolId={pool.id} w={160} h={160} className="h-14 w-14 shrink-0 rounded-xl" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-bold">{pool.name}</div>
                 <div className="mt-0.5 flex items-center gap-2 text-xs text-white/40">
                   <span className="font-mono text-gold">#{pool.join_code}</span>
                   <span>·</span>
@@ -179,7 +181,7 @@ export default function Pools() {
                   </span>
                 </div>
               </div>
-              <ChevronRight className="h-5 w-5 text-white/30 transition group-hover:translate-x-1 group-hover:text-grass" />
+              <ChevronRight className="h-5 w-5 shrink-0 text-white/30 transition group-hover:translate-x-1 group-hover:text-grass" />
             </motion.button>
           ))}
         </div>

@@ -78,6 +78,11 @@ export const isLive = (state: number) => state === 2 || state === 4;
 export const isFinished = (state: number) =>
   state === 5 || state === 10 || state === 13;
 
+/** Stale = still "Not Started" but its kickoff is already in the past. These are old
+ *  TxLINE fixtures that never got results (dropped from the feed) — hide them everywhere. */
+export const isStale = (kickoff: string | null, state: number, now = Date.now()) =>
+  state === 1 && !!kickoff && new Date(kickoff).getTime() <= now;
+
 /**
  * Approximate live match minute for display, derived from kickoff + game state.
  * The feed has no real clock, so this is an estimate (good enough for the live feel

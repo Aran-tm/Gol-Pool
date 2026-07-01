@@ -90,3 +90,14 @@ body {
 .wallet-adapter-modal-wrapper {
   background: #0b1f17 !important;
 }
+/* Space out the wallet options in the selection modal (default gap is cramped). */
+.wallet-adapter-modal-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  margin-bottom: 14px !important;
+}
+.wallet-adapter-modal-list .wallet-adapter-button {
+  margin: 0 !important;
+  border-radius: 14px !important;
+}

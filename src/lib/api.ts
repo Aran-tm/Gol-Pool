@@ -98,6 +98,7 @@ export async function joinPool(joinCode: string, wallet: string): Promise<Pool> 
     .eq("join_code", joinCode.toUpperCase().trim())
     .single();
   if (error || !pool) throw new Error("Pool not found for that code.");
+  if (pool.status && pool.status !== "open") throw new Error("This pool is closed to new players.");
 
   const { data: existing } = await supabase
     .from("pool_members")
@@ -129,6 +130,26 @@ export async function getPool(poolId: string): Promise<Pool | null> {
   return (data as Pool) ?? null;
 }
 
+/** Owner-only: set pool status ('open' | 'locked'). */
+export async function setPoolStatus(poolId: string, wallet: string, status: string): Promise<void> {
+  const { error } = await supabase
+    .from("pools")
+    .update({ status })
+    .eq("id", poolId)
+    .eq("owner_wallet", wallet); // RLS-lite: only the owner row matches
+  if (error) throw error;
+}
+
+/** Owner-only: delete a pool (cascades to members, assignments, score_log). */
+export async function deletePool(poolId: string, wallet: string): Promise<void> {
+  const { error } = await supabase
+    .from("pools")
+    .delete()
+    .eq("id", poolId)
+    .eq("owner_wallet", wallet);
+  if (error) throw error;
+}
+
 export async function getMembers(poolId: string): Promise<Member[]> {
   const { data } = await supabase.from("pool_members").select("*").eq("pool_id", poolId);
   return (data ?? []) as Member[];
@@ -149,15 +170,22 @@ export async function getPoolMemberCount(poolId: string): Promise<number> {
   return count ?? 0;
 }
 
-/** Fetch display names for a set of wallets → Map<wallet, name>. Wallets with no name are omitted. */
-export async function getProfiles(wallets: string[]): Promise<Map<string, string>> {
+export interface ProfileInfo {
+  display_name: string | null;
+  avatar_url: string | null;
+}
+
+/** Fetch display names + avatars for a set of wallets → Map<wallet, ProfileInfo>. */
+export async function getProfiles(wallets: string[]): Promise<Map<string, ProfileInfo>> {
   if (wallets.length === 0) return new Map();
   const { data } = await supabase
     .from("profiles")
-    .select("wallet_address,display_name")
+    .select("wallet_address,display_name,avatar_url")
     .in("wallet_address", wallets);
-  const map = new Map<string, string>();
-  for (const p of data ?? []) if (p.display_name) map.set(p.wallet_address, p.display_name);
+  const map = new Map<string, ProfileInfo>();
+  for (const p of data ?? []) {
+    map.set(p.wallet_address, { display_name: p.display_name ?? null, avatar_url: p.avatar_url ?? null });
+  }
   return map;
 }
 
@@ -166,6 +194,13 @@ export async function updateDisplayName(wallet: string, name: string): Promise<v
   await supabase
     .from("profiles")
     .upsert({ wallet_address: wallet, display_name: name }, { onConflict: "wallet_address" });
+}
+
+/** Set (or clear) a user's avatar image URL (e.g. a chosen NFT). */
+export async function updateAvatar(wallet: string, url: string | null): Promise<void> {
+  await supabase
+    .from("profiles")
+    .upsert({ wallet_address: wallet, avatar_url: url }, { onConflict: "wallet_address" });
 }
 
 export interface GoalEvent {
