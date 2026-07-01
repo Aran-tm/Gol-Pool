@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
 import { UserPlus, Trophy, Zap, ChevronLeft, ChevronRight } from "lucide-react";
+import { updateDisplayName } from "../lib/api";
+import Avatar from "../components/Avatar";
 
 const SLIDES = [
   {
@@ -30,9 +33,18 @@ const SLIDES = [
 
 export default function Onboarding() {
   const [[step, dir], setStep] = useState<[number, number]>([0, 0]);
+  const [name, setName] = useState("");
   const navigate = useNavigate();
+  const { publicKey } = useWallet();
+  const wallet = publicKey?.toBase58() ?? "";
 
-  function finish() {
+  async function finish() {
+    const trimmed = name.trim();
+    if (trimmed && wallet) {
+      try {
+        await updateDisplayName(wallet, trimmed);
+      } catch { /* ignore */ }
+    }
     localStorage.setItem("golpool_onboarded", "true");
     navigate("/dashboard", { replace: true });
   }
@@ -127,6 +139,20 @@ export default function Onboarding() {
               <p className="mx-auto mt-4 max-w-[18rem] text-sm leading-relaxed text-white/60 sm:max-w-sm sm:text-base">
                 {s.body}
               </p>
+            )}
+
+            {/* Name + avatar preview (last slide) */}
+            {isLast && (
+              <div className="mt-7 flex w-full max-w-xs flex-col items-center gap-3">
+                <Avatar wallet={wallet} name={name} size={64} />
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your name (optional)"
+                  maxLength={40}
+                  className="field w-full text-center"
+                />
+              </div>
             )}
 
             {/* Steps list (slide 2) */}
