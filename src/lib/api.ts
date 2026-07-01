@@ -42,7 +42,9 @@ export async function ensureProfile(wallet: string, displayName?: string) {
 export async function getMatches(): Promise<MatchRow[]> {
   const { data, error } = await supabase
     .from("matches")
-    .select("fixture_id,home_team_id,home_team,away_team_id,away_team,game_state,home_goals,away_goals,kickoff")
+    // select * so the app works before AND after the stats-columns migration
+    // (missing columns simply come back undefined → treated as 0 in the UI).
+    .select("*")
     .order("kickoff", { ascending: true });
   if (error) throw error;
   return (data ?? []) as MatchRow[];

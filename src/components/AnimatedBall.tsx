@@ -51,18 +51,18 @@ export default function AnimatedBall({ size = 128, className }: { size?: number;
             <circle cx="17" cy="31" r="4.5" />
           </g>
         </motion.svg>
-        {/* shine sweep */}
-        <motion.div
-          className="pointer-events-none absolute inset-0 rounded-full"
-          style={{
-            background:
-              "linear-gradient(115deg, transparent 40%, rgba(255,255,255,0.55) 50%, transparent 60%)",
-            maskImage: "radial-gradient(circle at 50% 50%, #000 46%, transparent 47%)",
-            WebkitMaskImage: "radial-gradient(circle at 50% 50%, #000 46%, transparent 47%)",
-          }}
-          animate={{ x: ["-120%", "120%"] }}
-          transition={{ duration: 3.5, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
-        />
+        {/* shine sweep — clipped to a static circle so it stays on the ball */}
+        <div className="pointer-events-none absolute inset-[7%] overflow-hidden rounded-full">
+          <motion.div
+            className="absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(115deg, transparent 42%, rgba(255,255,255,0.6) 50%, transparent 58%)",
+            }}
+            animate={{ x: ["-130%", "130%"] }}
+            transition={{ duration: 3.5, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+          />
+        </div>
       </motion.div>
     </div>
   );

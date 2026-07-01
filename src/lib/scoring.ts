@@ -14,6 +14,12 @@ export interface MatchRow {
   home_goals: number;
   away_goals: number;
   kickoff: string | null;
+  home_corners?: number;
+  away_corners?: number;
+  home_yellows?: number;
+  away_yellows?: number;
+  home_reds?: number;
+  away_reds?: number;
 }
 
 export const POINTS = {

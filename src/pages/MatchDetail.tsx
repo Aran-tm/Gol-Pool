@@ -150,6 +150,9 @@ export default function MatchDetail() {
         <p className="mt-2 text-xs text-white/40">{stateLabel}</p>
       </div>
 
+      {/* Match stats (corners + cards — TxLINE's soccer feed) */}
+      <MatchStats match={match} />
+
       {/* Timeline */}
       <section className="mt-5">
         <h2 className="flex items-center gap-2 text-sm font-bold text-white/70">
@@ -212,5 +215,47 @@ export default function MatchDetail() {
         </div>
       </section>
     </PageTransition>
+  );
+}
+
+/* ── Match stats (corners + cards) ─────────────────────────────────── */
+
+function MatchStats({ match }: { match: MatchRow }) {
+  const stats = [
+    { label: "Corners", h: match.home_corners ?? 0, a: match.away_corners ?? 0 },
+    { label: "Yellow cards", h: match.home_yellows ?? 0, a: match.away_yellows ?? 0, color: "bg-gold" },
+    { label: "Red cards", h: match.home_reds ?? 0, a: match.away_reds ?? 0, color: "bg-red-500" },
+  ];
+  const hasData = stats.some((s) => s.h > 0 || s.a > 0);
+  if (!hasData) return null;
+
+  return (
+    <section className="mt-5 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+      <h2 className="text-sm font-bold text-white/70">Match stats</h2>
+      <div className="mt-3 space-y-3">
+        {stats.map((s) => (
+          <StatBar key={s.label} {...s} />
+        ))}
+      </div>
+      <p className="mt-3 text-[10px] text-white/30">Live corners &amp; cards from TxLINE.</p>
+    </section>
+  );
+}
+
+function StatBar({ label, h, a, color = "bg-grass" }: { label: string; h: number; a: number; color?: string }) {
+  const total = h + a;
+  const homePct = total === 0 ? 50 : (h / total) * 100;
+  return (
+    <div>
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-black tabular-nums text-white">{h}</span>
+        <span className="text-white/50">{label}</span>
+        <span className="font-black tabular-nums text-white">{a}</span>
+      </div>
+      <div className="mt-1 flex h-1.5 gap-0.5 overflow-hidden rounded-full">
+        <div className={`${color} rounded-l-full opacity-90`} style={{ width: `${homePct}%` }} />
+        <div className="flex-1 rounded-r-full bg-white/15" />
+      </div>
+    </div>
   );
 }

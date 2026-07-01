@@ -79,8 +79,10 @@ async function pollScores(jwt: string) {
     if (!last) continue;
 
     const gs = Number(last.gameState ?? m.game_state);
-    const hg = last.scoreSoccer?.Participant1?.Total?.Goals ?? 0;
-    const ag = last.scoreSoccer?.Participant2?.Total?.Goals ?? 0;
+    const p1 = last.scoreSoccer?.Participant1?.Total;
+    const p2 = last.scoreSoccer?.Participant2?.Total;
+    const hg = p1?.Goals ?? 0;
+    const ag = p2?.Goals ?? 0;
     if (gs === 2 || gs === 4) live++;
 
     // New goals since last poll → append events (idempotent via unique seq).
@@ -95,10 +97,26 @@ async function pollScores(jwt: string) {
         ignoreDuplicates: true,
       });
 
-    if (gs !== m.game_state || hg !== m.home_goals || ag !== m.away_goals) {
+    // Match stats from the aggregate Total period (TxLINE gives corners + cards, no shots).
+    const hc = p1?.Corners ?? 0, ac = p2?.Corners ?? 0;
+    const hy = p1?.YellowCards ?? 0, ay = p2?.YellowCards ?? 0;
+    const hr = p1?.RedCards ?? 0, ar = p2?.RedCards ?? 0;
+
+    const statsChanged =
+      hc !== m.home_corners || ac !== m.away_corners ||
+      hy !== m.home_yellows || ay !== m.away_yellows ||
+      hr !== m.home_reds || ar !== m.away_reds;
+
+    if (gs !== m.game_state || hg !== m.home_goals || ag !== m.away_goals || statsChanged) {
       await supabase
         .from("matches")
-        .update({ game_state: gs, home_goals: hg, away_goals: ag, updated_at: new Date().toISOString() })
+        .update({
+          game_state: gs, home_goals: hg, away_goals: ag,
+          home_corners: hc, away_corners: ac,
+          home_yellows: hy, away_yellows: ay,
+          home_reds: hr, away_reds: ar,
+          updated_at: new Date().toISOString(),
+        })
         .eq("fixture_id", m.fixture_id);
       updated++;
       console.log(`  ⚽ ${m.home_team} ${hg}-${ag} ${m.away_team} [state ${gs}]`);

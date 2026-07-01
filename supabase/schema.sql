@@ -64,8 +64,23 @@ create table if not exists matches (
   game_state      integer not null default 1,        -- TxLINE gameState 1-19
   home_goals      integer not null default 0,
   away_goals      integer not null default 0,
+  home_corners    integer not null default 0,
+  away_corners    integer not null default 0,
+  home_yellows    integer not null default 0,
+  away_yellows    integer not null default 0,
+  home_reds       integer not null default 0,
+  away_reds       integer not null default 0,
   updated_at      timestamptz not null default now()
 );
+
+-- Migration for existing DBs (safe to re-run): add the stats columns.
+alter table matches
+  add column if not exists home_corners integer not null default 0,
+  add column if not exists away_corners integer not null default 0,
+  add column if not exists home_yellows integer not null default 0,
+  add column if not exists away_yellows integer not null default 0,
+  add column if not exists home_reds    integer not null default 0,
+  add column if not exists away_reds    integer not null default 0;
 
 -- ─────────────────────────────────────────────────────────────
 -- MATCH EVENTS — append-only feed of significant events (drives the live ticker)
