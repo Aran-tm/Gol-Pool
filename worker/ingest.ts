@@ -65,20 +65,40 @@ async function pollScores(jwt: string) {
 
   let live = 0;
   let updated = 0;
+  let failed = 0;
+  let skipped = 0;
+  const now = Date.now();
+  const HORIZON_MS = 3 * 60 * 60 * 1000; // don't poll fixtures kicking off >3h from now
   for (const m of matches ?? []) {
     if (isFinished(m.game_state)) continue;
+    // Skip far-future fixtures to keep cycles fast (matters for the serverless edge fn).
+    // Past/near/in-progress matches are always polled (kickoff - now <= horizon).
+    if (m.game_state === 1 && m.kickoff && new Date(m.kickoff).getTime() - now > HORIZON_MS) {
+      skipped++;
+      continue;
+    }
     let snaps: ScoresEvent[];
     try {
-      snaps = await (
-        await fetchRetry(`${base}/api/scores/snapshot/${m.fixture_id}`, { headers: h(jwt) })
-      ).json();
-    } catch {
+      const res = await fetchRetry(`${base}/api/scores/snapshot/${m.fixture_id}`, { headers: h(jwt) });
+      if (!res.ok) {
+        console.warn(`  ⚠️  fixture ${m.fixture_id} (${m.home_team} v ${m.away_team}): HTTP ${res.status}`);
+        failed++;
+        continue;
+      }
+      snaps = await res.json();
+    } catch (e) {
+      console.warn(`  ⚠️  fixture ${m.fixture_id}: ${e instanceof Error ? e.message : String(e)}`);
+      failed++;
       continue;
     }
     const last = snaps?.[snaps.length - 1];
-    if (!last) continue;
+    if (!last) {
+      skipped++;
+      continue;
+    }
 
-    const gs = Number(last.gameState ?? m.game_state);
+    const gsRaw = Number(last.gameState ?? m.game_state);
+    const gs = Number.isNaN(gsRaw) ? m.game_state : gsRaw; // never persist NaN
     const p1 = last.scoreSoccer?.Participant1?.Total;
     const p2 = last.scoreSoccer?.Participant2?.Total;
     const hg = p1?.Goals ?? 0;
@@ -122,7 +142,9 @@ async function pollScores(jwt: string) {
       console.log(`  ⚽ ${m.home_team} ${hg}-${ag} ${m.away_team} [state ${gs}]`);
     }
   }
-  console.log(`Polled ${matches?.length ?? 0} matches · ${live} live · ${updated} updated.`);
+  console.log(
+    `Polled ${matches?.length ?? 0} matches · ${live} live · ${updated} updated · ${skipped} skipped · ${failed} failed.`,
+  );
 }
 
 async function cycle() {

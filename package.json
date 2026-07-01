@@ -11,7 +11,8 @@
     "txline:subscribe": "tsx worker/subscribe.ts",
     "txline:fixtures": "tsx worker/fixtures.ts",
     "txline:scores": "tsx worker/scores.ts",
-    "txline:ingest": "tsx worker/ingest.ts"
+    "txline:ingest": "tsx worker/ingest.ts",
+    "txline:replay": "tsx worker/replay.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.32.1",
