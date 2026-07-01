@@ -39,3 +39,15 @@ create policy "write_all" on profiles         for all using (true) with check (t
 create policy "write_all" on pools            for all using (true) with check (true);
 create policy "write_all" on pool_members     for all using (true) with check (true);
 create policy "write_all" on team_assignments for all using (true) with check (true);
+
+-- Storage bucket for custom profile-picture uploads (NFT avatars use their own URL, no bucket needed).
+insert into storage.buckets (id, name, public)
+  values ('avatars', 'avatars', true)
+  on conflict (id) do nothing;
+
+drop policy if exists "avatars_read_all"  on storage.objects;
+drop policy if exists "avatars_write_all" on storage.objects;
+
+create policy "avatars_read_all"  on storage.objects for select using (bucket_id = 'avatars');
+create policy "avatars_write_all" on storage.objects for all
+  using (bucket_id = 'avatars') with check (bucket_id = 'avatars');

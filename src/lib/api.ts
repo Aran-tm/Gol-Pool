@@ -203,6 +203,15 @@ export async function updateAvatar(wallet: string, url: string | null): Promise<
     .upsert({ wallet_address: wallet, avatar_url: url }, { onConflict: "wallet_address" });
 }
 
+/** Upload a custom profile picture to the `avatars` bucket and return its public URL. */
+export async function uploadAvatarImage(wallet: string, file: File): Promise<string> {
+  const ext = file.name.split(".").pop() || "jpg";
+  const path = `${wallet}/avatar.${ext}`; // fixed path per wallet: re-upload overwrites (edit = upload again)
+  const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+  if (error) throw error;
+  return supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+}
+
 export interface GoalEvent {
   id: number;
   fixture_id: number;

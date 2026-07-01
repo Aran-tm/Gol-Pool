@@ -1,10 +1,10 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { HelpCircle, RefreshCw, Trophy, Users, Star, LogOut, Sparkles, X } from "lucide-react";
+import { HelpCircle, RefreshCw, Trophy, Users, Star, LogOut, Sparkles, X, Upload, Trash2 } from "lucide-react";
 import PageTransition from "../components/PageTransition";
-import { getMyPools, getMatches, getAssignments, getProfiles, updateDisplayName, updateAvatar, type Assignment } from "../lib/api";
+import { getMyPools, getMatches, getAssignments, getProfiles, updateDisplayName, updateAvatar, uploadAvatarImage, type Assignment } from "../lib/api";
 import { memberPoints } from "../lib/scoring";
 import { fetchNfts, hasNftRpc, type NftItem } from "../lib/nft";
 import Flag from "../components/Flag";
@@ -43,6 +43,8 @@ export default function Profile() {
   const [nfts, setNfts] = useState<NftItem[]>([]);
   const [nftState, setNftState] = useState<"idle" | "loading" | "error" | "done">("idle");
   const [nftError, setNftError] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
 
   // Load own profile (name + avatar).
   useEffect(() => {
@@ -75,6 +77,30 @@ export default function Profile() {
     try {
       await updateAvatar(wallet, url);
     } catch { /* ignore */ }
+  }
+
+  async function handleUpload(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow picking the same file again later
+    if (!file || !wallet) return;
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Please choose an image file.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError("Image must be under 5MB.");
+      return;
+    }
+    setUploadError("");
+    setUploading(true);
+    try {
+      const url = await uploadAvatarImage(wallet, file);
+      await chooseAvatar(url);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setUploading(false);
+    }
   }
 
   const loadStats = useCallback(async () => {
@@ -293,6 +319,32 @@ export default function Profile() {
                   <X className="h-5 w-5" />
                 </button>
               </div>
+
+              <div className="mb-4 flex gap-2">
+                <label className="btn-ghost flex flex-1 items-center justify-center gap-2 !py-2 text-xs">
+                  <Upload className="h-3.5 w-3.5" />
+                  {uploading ? "Uploading…" : "Upload photo"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={uploading}
+                    onChange={handleUpload}
+                  />
+                </label>
+                {avatarUrl && (
+                  <button
+                    onClick={() => chooseAvatar(null)}
+                    className="btn-ghost flex items-center justify-center gap-2 !py-2 text-xs text-red-300"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Remove
+                  </button>
+                )}
+              </div>
+              {uploadError && (
+                <p className="mb-3 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-3 text-xs text-red-300">{uploadError}</p>
+              )}
 
               {!hasNftRpc() && (
                 <p className="rounded-xl border border-gold/30 bg-gold/[0.06] p-3 text-xs text-gold/90">
