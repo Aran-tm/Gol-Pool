@@ -6,9 +6,11 @@
 // simulates the progression using the real fixture + teams so the demo/video shows
 // the live minute, floating +2, activity feed, leaderboard movement and champion.
 //
-//   npm run txline:replay              (pick the first upcoming fixture)
-//   npm run txline:replay -- 123456    (replay a specific fixture_id)
-//   npm run txline:replay -- 123456 --fast
+// Usage — for flags use `npx tsx` directly (npm run swallows -- flags on Windows):
+//   npm run txline:replay                        (default: first upcoming fixture)
+//   npx tsx worker/replay.ts --pool ABC12        (replay a match with one of a pool's teams) ← best for demo
+//   npx tsx worker/replay.ts 123456              (a specific fixture_id)
+//   npx tsx worker/replay.ts --pool ABC12 --fast (compress to ~11s)
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
@@ -21,9 +23,12 @@ if (!supaUrl || !supaKey) {
 }
 const supabase = createClient(supaUrl, supaKey, { auth: { persistSession: false } });
 
-const args = process.argv.slice(2).filter((a) => a !== "--fast");
-const FAST = process.argv.includes("--fast");
-const fixtureArg = args[0] ? Number(args[0]) : null;
+const argv = process.argv.slice(2);
+const FAST = argv.includes("--fast");
+const poolIdx = argv.indexOf("--pool");
+const poolCode = poolIdx >= 0 ? argv[poolIdx + 1] : null;
+const positional = argv.filter((a, i) => !a.startsWith("--") && i !== poolIdx + 1);
+const fixtureArg = positional[0] ? Number(positional[0]) : null;
 const STEP_MS = FAST ? 250 : 650; // real ms per 2 simulated minutes (~30s / ~11s total)
 const MIN = 60_000;
 
@@ -56,16 +61,33 @@ function buildGoals(): { minute: number; side: "home" | "away" }[] {
   return goals.sort((a, b) => a.minute - b.minute);
 }
 
+async function pickFixtureForPool(code: string): Promise<number> {
+  const { data: pool } = await supabase.from("pools").select("id,name").eq("join_code", code.toUpperCase().trim()).single();
+  if (!pool) throw new Error(`Pool with code "${code}" not found`);
+  const { data: asg } = await supabase.from("team_assignments").select("team_id,team_name").eq("pool_id", pool.id);
+  const teamIds = new Set((asg ?? []).map((a) => a.team_id));
+  if (teamIds.size === 0) throw new Error(`Pool "${pool.name}" has no team assignments yet`);
+  const { data: ms } = await supabase.from("matches").select("*").order("kickoff", { ascending: true });
+  // Prefer a not-finished match involving one of the pool's teams.
+  const m = (ms ?? []).find((x) => !isFinishedState(x.game_state) && (teamIds.has(x.home_team_id) || teamIds.has(x.away_team_id)))
+    ?? (ms ?? []).find((x) => teamIds.has(x.home_team_id) || teamIds.has(x.away_team_id));
+  if (!m) throw new Error(`No fixture found involving pool "${pool.name}" teams`);
+  console.log(`Pool "${pool.name}" → replaying a fixture with one of its teams.`);
+  return m.fixture_id;
+}
+const isFinishedState = (s: number) => s === 5 || s === 10 || s === 13;
+
 async function main() {
-  // Pick the fixture to replay.
+  // Pick the fixture to replay: explicit id > pool's team > first upcoming.
+  const targetId = fixtureArg ?? (poolCode ? await pickFixtureForPool(poolCode) : null);
   let query = supabase.from("matches").select("*");
-  query = fixtureArg
-    ? query.eq("fixture_id", fixtureArg)
+  query = targetId
+    ? query.eq("fixture_id", targetId)
     : query.order("kickoff", { ascending: true }).limit(1);
   const { data, error } = await query;
   if (error) throw new Error(`select match: ${error.message}`);
   const match = data?.[0];
-  if (!match) throw new Error(fixtureArg ? `Fixture ${fixtureArg} not found` : "No matches in DB — run txline:ingest first");
+  if (!match) throw new Error(targetId ? `Fixture ${targetId} not found` : "No matches in DB — run txline:ingest first");
 
   const goals = buildGoals();
   let hg = 0, ag = 0;
