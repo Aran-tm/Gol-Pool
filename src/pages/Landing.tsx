@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { motion, type Variants } from "framer-motion";
 import { Trophy, Radio, Wallet } from "lucide-react";
 import AnimatedBall from "../components/AnimatedBall";
+import { useWalletError } from "../solana/WalletContext";
 
 const container: Variants = {
   hidden: {},
@@ -16,8 +17,10 @@ const item: Variants = {
 };
 
 export default function Landing() {
-  const { connected } = useWallet();
+  const { connected, connecting, disconnect, select } = useWallet();
   const navigate = useNavigate();
+  const { message, clear } = useWalletError();
+  const [stuck, setStuck] = useState(false);
 
   // Auto-navigate when wallet connects.
   useEffect(() => {
@@ -25,6 +28,28 @@ export default function Landing() {
     const onboarded = localStorage.getItem("golpool_onboarded");
     navigate(onboarded ? "/dashboard" : "/onboarding", { replace: true });
   }, [connected, navigate]);
+
+  // Phantom's approval popup can be missed, blocked, or ignored — if
+  // "Connecting…" drags on, offer a way out instead of a dead button
+  // (the wallet-adapter button has no click handler while connecting).
+  useEffect(() => {
+    if (!connecting) {
+      setStuck(false);
+      return;
+    }
+    const t = setTimeout(() => setStuck(true), 8000);
+    return () => clearTimeout(t);
+  }, [connecting]);
+
+  async function resetConnection() {
+    try {
+      await disconnect();
+      select(null);
+    } catch { /* ignore */ }
+    localStorage.removeItem("walletName");
+    setStuck(false);
+    clear();
+  }
 
   const stats = [
     { icon: Trophy, k: "104", v: "Matches" },
@@ -73,6 +98,19 @@ export default function Landing() {
         <p className="mt-3 text-xs text-white/40">
           Connect your wallet to enter — free, no fees
         </p>
+        {message && (
+          <p className="mt-3 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-3 text-xs text-red-300">
+            {message}
+          </p>
+        )}
+        {stuck && (
+          <button
+            onClick={resetConnection}
+            className="mt-2 text-xs text-white/40 underline transition hover:text-white/70"
+          >
+            Taking too long? Tap to reset and try again
+          </button>
+        )}
       </motion.div>
 
       <motion.div

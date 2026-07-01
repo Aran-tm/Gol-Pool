@@ -304,7 +304,11 @@ export default function Profile() {
                 <p className="rounded-xl border border-red-500/30 bg-red-500/[0.06] p-3 text-xs text-red-300">{nftError}</p>
               )}
               {nftState === "done" && nfts.length === 0 && (
-                <p className="p-3 text-center text-sm text-white/50">No NFTs found in this wallet.</p>
+                <p className="p-3 text-center text-sm text-white/50">
+                  No NFTs found in this wallet. This checks your real Solana mainnet
+                  wallet — buy or claim one on Magic Eden / Tensor, or connect a
+                  wallet that already holds one, then reopen this picker.
+                </p>
               )}
 
               <div className="mt-3 grid grid-cols-3 gap-3">
