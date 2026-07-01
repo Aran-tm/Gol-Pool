@@ -21,8 +21,9 @@ export default function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Hide when wallet not connected or on onboarding/landing.
+  // Hide when wallet not connected, or on landing/onboarding (full-screen flows).
   if (!connected) return null;
+  if (location.pathname === "/" || location.pathname === "/onboarding") return null;
 
   const isActive = (path: string) => {
     if (path === "/dashboard" && location.pathname === "/dashboard") return true;

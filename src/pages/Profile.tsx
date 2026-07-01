@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { HelpCircle, RefreshCw, Trophy, Users, Star } from "lucide-react";
+import { HelpCircle, RefreshCw, Trophy, Users, Star, LogOut } from "lucide-react";
 import PageTransition from "../components/PageTransition";
 import { getMyPools, getMatches, getAssignments, updateDisplayName, type Assignment } from "../lib/api";
 import { memberPoints } from "../lib/scoring";
@@ -12,9 +12,19 @@ import Skeleton from "../components/Skeleton";
 const short = (w: string) => `${w.slice(0, 4)}…${w.slice(-4)}`;
 
 export default function Profile() {
-  const { publicKey } = useWallet();
+  const { publicKey, disconnect } = useWallet();
   const wallet = publicKey?.toBase58() ?? "";
   const navigate = useNavigate();
+
+  async function handleDisconnect() {
+    // Full reset: replay onboarding on next connect, then disconnect → ProtectedRoute
+    // bounces to the landing page.
+    localStorage.removeItem("golpool_onboarded");
+    try {
+      await disconnect();
+    } catch { /* ignore */ }
+    navigate("/", { replace: true });
+  }
 
   const [displayName, setDisplayName] = useState("");
   const [editing, setEditing] = useState(false);
@@ -191,6 +201,14 @@ export default function Profile() {
         >
           <RefreshCw className="h-5 w-5 text-white/50" />
           <span className="text-sm font-semibold">Show intro again</span>
+        </button>
+
+        <button
+          onClick={handleDisconnect}
+          className="flex w-full items-center gap-3 rounded-2xl border border-red-500/30 bg-red-500/[0.06] p-4 text-left transition hover:border-red-500/50"
+        >
+          <LogOut className="h-5 w-5 text-red-400" />
+          <span className="text-sm font-semibold text-red-300">Disconnect wallet</span>
         </button>
       </section>
 
