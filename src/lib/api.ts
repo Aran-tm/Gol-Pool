@@ -166,6 +166,44 @@ export async function updateDisplayName(wallet: string, name: string): Promise<v
     .upsert({ wallet_address: wallet, display_name: name }, { onConflict: "wallet_address" });
 }
 
+export interface GoalEvent {
+  id: number;
+  fixture_id: number;
+  team_id: number;
+  team_name: string;
+  created_at: string;
+}
+
+/** Goal events for a set of fixtures, most recent first (drives the pool activity feed). */
+export async function getGoalEvents(fixtureIds: number[]): Promise<GoalEvent[]> {
+  if (fixtureIds.length === 0) return [];
+  const { data } = await supabase
+    .from("match_events")
+    .select("id,fixture_id,team_id,type,payload,created_at")
+    .in("fixture_id", fixtureIds)
+    .eq("type", "goal")
+    .order("id", { ascending: false })
+    .limit(50);
+  return (data ?? []).map((e) => ({
+    id: e.id,
+    fixture_id: e.fixture_id,
+    team_id: e.team_id,
+    team_name: (e.payload as { team?: string } | null)?.team ?? "",
+    created_at: e.created_at,
+  }));
+}
+
+/** Subscribe to match_events inserts; calls cb on any change. Returns an unsubscribe fn. */
+export function subscribeEvents(cb: () => void): () => void {
+  const channel = supabase
+    .channel("events-live")
+    .on("postgres_changes", { event: "*", schema: "public", table: "match_events" }, cb)
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
 /** Subscribe to live match updates; calls cb on any change. Returns an unsubscribe fn. */
 export function subscribeMatches(cb: () => void): () => void {
   const channel = supabase

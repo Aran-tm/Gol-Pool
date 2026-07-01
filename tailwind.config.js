@@ -48,6 +48,15 @@ export default {
           "0%,100%": { transform: "translate(-5%, -5%)" },
           "50%": { transform: "translate(5%, 5%)" },
         },
+        "live-border": {
+          "0%,100%": { boxShadow: "0 0 0 0 rgba(239,68,68,0.45)" },
+          "50%": { boxShadow: "0 0 0 3px rgba(239,68,68,0.12)" },
+        },
+        "float-up": {
+          "0%": { transform: "translateY(0)", opacity: "0" },
+          "15%": { opacity: "1" },
+          "100%": { transform: "translateY(-28px)", opacity: "0" },
+        },
       },
       animation: {
         "pulse-ring": "pulse-ring 1.8s cubic-bezier(0.2,0.6,0.3,1) infinite",
@@ -55,6 +64,8 @@ export default {
         "spin-slow": "spin 16s linear infinite",
         shimmer: "shimmer 3s linear infinite",
         "glow-pan": "glow-pan 14s ease-in-out infinite",
+        "live-border": "live-border 2s ease-in-out infinite",
+        "float-up": "float-up 1.6s ease-out forwards",
       },
     },
   },

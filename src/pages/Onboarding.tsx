@@ -29,7 +29,7 @@ const SLIDES = [
 ];
 
 export default function Onboarding() {
-  const [[step, dir], setStep] = useState<[number, number]>([2, 0]);
+  const [[step, dir], setStep] = useState<[number, number]>([0, 0]);
   const navigate = useNavigate();
 
   function finish() {
@@ -59,13 +59,13 @@ export default function Onboarding() {
   };
 
   return (
-    <main className="relative mx-auto flex min-h-[100dvh] w-full max-w-md flex-col overflow-hidden px-6 py-8">
-      {/* Desktop side arrows — fixed to the viewport edges */}
+    <main className="relative mx-auto flex min-h-[100dvh] w-full max-w-md flex-col px-6 pt-8 pb-16 sm:pb-24">
+      {/* Desktop side arrows — flanking the carousel, a bit outside the content column */}
       <button
         onClick={() => go(step - 1)}
         disabled={isFirst}
         aria-label="Previous"
-        className="fixed left-4 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/10 bg-white/5 text-white/70 backdrop-blur transition hover:border-grass/50 hover:text-grass disabled:pointer-events-none disabled:opacity-25 sm:grid"
+        className="absolute -left-5 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/10 bg-white/5 text-white/70 backdrop-blur transition hover:border-grass/50 hover:text-grass disabled:pointer-events-none disabled:opacity-25 sm:grid lg:-left-14"
       >
         <ChevronLeft className="h-5 w-5" />
       </button>
@@ -73,7 +73,7 @@ export default function Onboarding() {
         onClick={() => go(step + 1)}
         disabled={isLast}
         aria-label="Next"
-        className="fixed right-4 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/10 bg-white/5 text-white/70 backdrop-blur transition hover:border-grass/50 hover:text-grass disabled:pointer-events-none disabled:opacity-25 sm:grid"
+        className="absolute -right-5 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/10 bg-white/5 text-white/70 backdrop-blur transition hover:border-grass/50 hover:text-grass disabled:pointer-events-none disabled:opacity-25 sm:grid lg:-right-14"
       >
         <ChevronRight className="h-5 w-5" />
       </button>

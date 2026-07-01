@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { isLive, isFinished, GAME_STATE } from "../lib/txline";
 import Flag from "./Flag";
+import MatchMinute from "./MatchMinute";
 import type { MatchRow } from "../lib/scoring";
 import { LiveBadge } from "./ui";
 
@@ -27,7 +28,9 @@ export default function MatchCard({ match, compact }: Props) {
     return (
       <button
         onClick={() => navigate(`/matches/${match.fixture_id}`)}
-        className="flex shrink-0 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 transition hover:border-grass/40"
+        className={`flex shrink-0 items-center gap-2 rounded-xl border bg-white/[0.04] px-3 py-2 transition ${
+          live ? "border-red-500/40 animate-live-border" : "border-white/10 hover:border-grass/40"
+        }`}
       >
         <span className="flex items-center gap-1.5 text-xs">
           <Flag name={match.home_team} className="text-[13px]" /> {match.home_team}
@@ -42,7 +45,12 @@ export default function MatchCard({ match, compact }: Props) {
         <span className="flex items-center gap-1.5 text-xs">
           {match.away_team} <Flag name={match.away_team} className="text-[13px]" />
         </span>
-        {live && <LiveBadge className="!text-[9px] !px-1.5 !py-0" />}
+        {live && (
+          <>
+            <MatchMinute match={match} className="text-[10px] font-bold text-red-400 tabular-nums" />
+            <LiveBadge className="!text-[9px] !px-1.5 !py-0" />
+          </>
+        )}
       </button>
     );
   }
@@ -50,7 +58,9 @@ export default function MatchCard({ match, compact }: Props) {
   return (
     <button
       onClick={() => navigate(`/matches/${match.fixture_id}`)}
-      className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-grass/40"
+      className={`flex w-full items-center justify-between rounded-2xl border bg-white/[0.04] p-4 text-left transition ${
+        live ? "border-red-500/40 animate-live-border" : "border-white/10 hover:border-grass/40"
+      }`}
     >
       <div className="flex items-center gap-2.5">
         <Flag name={match.home_team} className="text-xl" />
@@ -66,13 +76,20 @@ export default function MatchCard({ match, compact }: Props) {
         ) : (
           <span className="text-sm font-bold text-white/30">vs</span>
         )}
-        <span
-          className={`text-[10px] font-semibold uppercase tracking-wider ${
-            live ? "text-red-400" : done ? "text-white/40" : "text-white/30"
-          }`}
-        >
-          {statusLabel}
-        </span>
+        {live ? (
+          <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-red-400">
+            <MatchMinute match={match} className="tabular-nums" />
+            <LiveBadge className="!px-1.5 !py-0 !text-[8px]" />
+          </span>
+        ) : (
+          <span
+            className={`text-[10px] font-semibold uppercase tracking-wider ${
+              done ? "text-white/40" : "text-white/30"
+            }`}
+          >
+            {statusLabel}
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-2.5">

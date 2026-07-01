@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { motion } from "framer-motion";
 import confetti from "canvas-confetti";
 import Flag from "./Flag";
+import AnimatedBall from "./AnimatedBall";
 
 interface Props {
   teams: { id: number; name: string }[];
@@ -28,6 +29,7 @@ export default function TeamReveal({ teams, onDone }: Props) {
       onClick={onDone}
       className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-ink-950/95 px-6 backdrop-blur-xl"
     >
+      <AnimatedBall size={96} className="mb-4" />
       <motion.p
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -41,7 +43,7 @@ export default function TeamReveal({ teams, onDone }: Props) {
         transition={{ type: "spring", stiffness: 300, damping: 18 }}
         className="text-gradient mt-2 text-4xl font-black"
       >
-        You're in! ⚽
+        You're in!
       </motion.h2>
 
       <div className="mt-9 grid w-full max-w-xs grid-cols-2 gap-3">

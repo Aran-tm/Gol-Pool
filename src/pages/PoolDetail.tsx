@@ -3,33 +3,40 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
-import { ArrowLeft, Copy, Check, Crown, Users, Shield } from "lucide-react";
+import { ArrowLeft, Copy, Check, Crown, Users, Shield, Radio } from "lucide-react";
 import {
   getPool,
   getMembers,
   getAssignments,
   getMatches,
   getProfiles,
+  getGoalEvents,
   subscribeMatches,
+  subscribeEvents,
   type Pool,
   type Member,
   type Assignment,
+  type GoalEvent,
 } from "../lib/api";
 import { memberPoints, teamPoints, POINTS, type MatchRow } from "../lib/scoring";
-import { isLive } from "../lib/txline";
+import { isLive, isFinished } from "../lib/txline";
 import { AnimatedNumber, LiveBadge, Label } from "../components/ui";
 import TeamBadge from "../components/TeamBadge";
 import Flag from "../components/Flag";
+import MatchMinute from "../components/MatchMinute";
 import Avatar from "../components/Avatar";
 import TeamReveal from "../components/TeamReveal";
+import ChampionCelebration from "../components/ChampionCelebration";
 import EmptyState from "../components/EmptyState";
 
 const short = (w: string) => `${w.slice(0, 4)}…${w.slice(-4)}`;
+const nameOf = (wallet: string, names: Map<string, string>) => names.get(wallet) ?? short(wallet);
 
-type Tab = "leaderboard" | "my-teams" | "rules";
+type Tab = "leaderboard" | "feed" | "my-teams" | "rules";
 const TABS: { key: Tab; label: string; icon: React.FC<{ className?: string }> }[] = [
-  { key: "leaderboard", label: "Leaderboard", icon: Crown },
-  { key: "my-teams", label: "My Teams", icon: Users },
+  { key: "leaderboard", label: "Table", icon: Crown },
+  { key: "feed", label: "Feed", icon: Radio },
+  { key: "my-teams", label: "Teams", icon: Users },
   { key: "rules", label: "Rules", icon: Shield },
 ];
 
@@ -62,11 +69,17 @@ export default function PoolDetail() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [matches, setMatches] = useState<MatchRow[]>([]);
   const [names, setNames] = useState<Map<string, string>>(new Map());
+  const [feed, setFeed] = useState<GoalEvent[]>([]);
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  // Transient per-wallet point bumps → floating "+N" + gold flash on the leaderboard.
+  const [bumps, setBumps] = useState<Map<string, { delta: number; key: number }>>(new Map());
+  const [champ, setChamp] = useState<Row | null>(null);
   // Show the team-reveal once when arriving straight from create/join.
   const [reveal, setReveal] = useState(() => Boolean((location.state as { reveal?: boolean } | null)?.reveal));
   const goalsRef = useRef<Map<number, number>>(new Map());
+  const pointsRef = useRef<Map<string, number>>(new Map());
+  const bumpKey = useRef(0);
 
   const loadStatic = useCallback(async () => {
     if (!poolId) return;
@@ -136,12 +149,77 @@ export default function PoolDetail() {
 
   const liveMatches = matches.filter((m) => isLive(m.game_state));
 
+  // Team → owner wallet, and the fixtures relevant to this pool (for the feed).
+  const teamOwner = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const a of assignments) m.set(a.team_id, a.wallet_address);
+    return m;
+  }, [assignments]);
+  const poolFixtureIds = useMemo(() => {
+    const teamIds = new Set(assignments.map((a) => a.team_id));
+    return matches.filter((mt) => teamIds.has(mt.home_team_id) || teamIds.has(mt.away_team_id)).map((mt) => mt.fixture_id);
+  }, [assignments, matches]);
+
+  // Load + live-subscribe the goal feed for this pool's fixtures.
+  const loadFeed = useCallback(async () => {
+    setFeed(await getGoalEvents(poolFixtureIds));
+  }, [poolFixtureIds]);
+  useEffect(() => {
+    loadFeed();
+    const unsub = subscribeEvents(loadFeed);
+    return unsub;
+  }, [loadFeed]);
+
+  // Detect point increases per wallet → floating "+N" + gold flash.
+  useEffect(() => {
+    const prev = pointsRef.current;
+    const next = new Map<string, number>();
+    const fresh = new Map<string, { delta: number; key: number }>();
+    for (const r of rows) {
+      next.set(r.wallet, r.points);
+      const before = prev.get(r.wallet);
+      if (before != null && r.points > before) {
+        fresh.set(r.wallet, { delta: r.points - before, key: ++bumpKey.current });
+      }
+    }
+    pointsRef.current = next;
+    if (fresh.size > 0) {
+      setBumps(fresh);
+      const id = setTimeout(() => setBumps(new Map()), 1700);
+      return () => clearTimeout(id);
+    }
+  }, [rows]);
+
+  // Champion: once every relevant match is finished and there's a clear leader.
+  useEffect(() => {
+    if (!poolId || rows.length === 0) return;
+    const relevant = matches.filter((mt) => poolFixtureIds.includes(mt.fixture_id) && mt.game_state !== 1);
+    if (relevant.length === 0 || !relevant.every((mt) => isFinished(mt.game_state))) return;
+    if (rows[0].points <= 0) return;
+    if (localStorage.getItem(`golpool_champ_${poolId}`)) return;
+    localStorage.setItem(`golpool_champ_${poolId}`, "1");
+    setChamp(rows[0]);
+  }, [rows, matches, poolFixtureIds, poolId]);
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pt-8 pb-24">
       {/* Team reveal — fires once after creating/joining a pool */}
       <AnimatePresence>
         {reveal && myTeams.length > 0 && (
           <TeamReveal teams={myTeams} onDone={() => setReveal(false)} />
+        )}
+      </AnimatePresence>
+
+      {/* Champion celebration — fires once when the pool finishes */}
+      <AnimatePresence>
+        {champ && (
+          <ChampionCelebration
+            name={nameOf(champ.wallet, names)}
+            wallet={champ.wallet}
+            points={champ.points}
+            poolName={pool?.name ?? "Pool"}
+            onDone={() => setChamp(null)}
+          />
         )}
       </AnimatePresence>
 
@@ -191,13 +269,16 @@ export default function PoolDetail() {
           <LiveBadge />
           {liveMatches.map((m) => (
             <div key={m.fixture_id} className="flex items-center justify-between text-xs">
-              <span className="flex items-center gap-1.5">
+              <span className="flex flex-1 items-center gap-1.5">
                 <Flag name={m.home_team} className="text-[13px]" /> {m.home_team}
               </span>
-              <span className="font-black tabular-nums text-gold">
-                {m.home_goals} – {m.away_goals}
+              <span className="flex flex-col items-center leading-tight">
+                <span className="font-black tabular-nums text-gold">
+                  {m.home_goals} – {m.away_goals}
+                </span>
+                <MatchMinute match={m} className="text-[9px] font-bold text-red-400 tabular-nums" />
               </span>
-              <span className="flex items-center gap-1.5">
+              <span className="flex flex-1 items-center justify-end gap-1.5">
                 {m.away_team} <Flag name={m.away_team} className="text-[13px]" />
               </span>
             </div>
@@ -228,7 +309,8 @@ export default function PoolDetail() {
 
       {/* Tab content */}
       <div className="mt-5">
-        {tab === "leaderboard" && <LeaderboardTab rows={rows} me={me} names={names} liveMatches={liveMatches.length} />}
+        {tab === "leaderboard" && <LeaderboardTab rows={rows} me={me} names={names} bumps={bumps} liveMatches={liveMatches.length} />}
+        {tab === "feed" && <FeedTab feed={feed} teamOwner={teamOwner} names={names} />}
         {tab === "my-teams" && <MyTeamsTab myTeams={myTeams} matches={matches} />}
         {tab === "rules" && <RulesTab pool={pool} membersCount={members.length} />}
       </div>
@@ -238,26 +320,44 @@ export default function PoolDetail() {
 
 /* ── Tab: Leaderboard ──────────────────────────────────────────────── */
 
-function LeaderboardTab({ rows, me, names, liveMatches }: { rows: Row[]; me: string; names: Map<string, string>; liveMatches: number }) {
+function LeaderboardTab({
+  rows,
+  me,
+  names,
+  bumps,
+  liveMatches,
+}: {
+  rows: Row[];
+  me: string;
+  names: Map<string, string>;
+  bumps: Map<string, { delta: number; key: number }>;
+  liveMatches: number;
+}) {
   return (
     <>
       <div className="flex items-center justify-between">
         <Label>Leaderboard</Label>
         {liveMatches > 0 ? <LiveBadge /> : <span className="text-xs text-white/30">live</span>}
       </div>
+
+      {rows.length >= 3 && <Podium rows={rows} names={names} me={me} />}
+
       <div className="mt-3 space-y-2.5">
         {rows.map((r, i) => {
           const isMe = r.wallet === me;
           const name = names.get(r.wallet);
+          const bump = bumps.get(r.wallet);
           return (
             <motion.div
               layout
               key={r.wallet}
               transition={{ type: "spring", stiffness: 500, damping: 40 }}
-              className={`rounded-2xl border p-4 ${
-                isMe
-                  ? "border-grass/60 bg-grass/[0.08] shadow-glow"
-                  : "border-white/10 bg-white/[0.04]"
+              className={`relative overflow-hidden rounded-2xl border p-4 transition-colors duration-500 ${
+                bump
+                  ? "border-gold/70 bg-gold/[0.14] shadow-gold"
+                  : isMe
+                    ? "border-grass/60 bg-grass/[0.08] shadow-glow"
+                    : "border-white/10 bg-white/[0.04]"
               }`}
             >
               <div className="flex items-center justify-between">
@@ -277,10 +377,20 @@ function LeaderboardTab({ rows, me, names, liveMatches }: { rows: Row[]; me: str
                     {isMe && <span className="ml-1 text-grass">you</span>}
                   </span>
                 </div>
-                <AnimatedNumber
-                  value={r.points}
-                  className="text-2xl font-black text-gold tabular-nums"
-                />
+                <div className="relative">
+                  <AnimatedNumber
+                    value={r.points}
+                    className="text-2xl font-black text-gold tabular-nums"
+                  />
+                  {bump && (
+                    <span
+                      key={bump.key}
+                      className="animate-float-up pointer-events-none absolute -top-1 right-0 text-sm font-black text-grass"
+                    >
+                      +{bump.delta}
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="mt-2.5 flex flex-wrap gap-1 pl-11">
                 {r.teams.map((t) => (
@@ -298,6 +408,94 @@ function LeaderboardTab({ rows, me, names, liveMatches }: { rows: Row[]; me: str
       <p className="mt-7 text-center text-[11px] text-white/30">
         +{POINTS.goal} goal · +{POINTS.win} win · +{POINTS.draw} draw · +{POINTS.cleanSheet} clean sheet — live from TxLINE
       </p>
+    </>
+  );
+}
+
+/* ── Podium (top 3) ────────────────────────────────────────────────── */
+
+function Podium({ rows, names, me }: { rows: Row[]; names: Map<string, string>; me: string }) {
+  // Visual order: 2nd, 1st, 3rd.
+  const slots = [
+    { r: rows[1], place: 2, h: "h-16", ring: "ring-white/30", medal: "🥈" },
+    { r: rows[0], place: 1, h: "h-24", ring: "ring-gold/70", medal: "🥇" },
+    { r: rows[2], place: 3, h: "h-12", ring: "ring-amber-700/60", medal: "🥉" },
+  ];
+  return (
+    <div className="mt-4 flex items-end justify-center gap-2 rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+      {slots.map(({ r, place, h, ring, medal }) => (
+        <div key={place} className="flex flex-1 flex-col items-center">
+          <span className="mb-1 text-lg">{medal}</span>
+          <div className={`rounded-full ring-2 ${ring}`}>
+            <Avatar wallet={r.wallet} name={names.get(r.wallet)} size={place === 1 ? 52 : 40} />
+          </div>
+          <span className="mt-1.5 max-w-[6.5rem] truncate text-center text-xs font-semibold">
+            {nameOf(r.wallet, names)}
+            {r.wallet === me && <span className="ml-1 text-grass">you</span>}
+          </span>
+          <span className="text-sm font-black tabular-nums text-gold">{r.points}</span>
+          <div
+            className={`mt-1.5 w-full rounded-t-lg bg-gradient-to-t from-white/5 to-white/15 ${h} ${
+              place === 1 ? "shadow-gold" : ""
+            }`}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ── Tab: Feed ─────────────────────────────────────────────────────── */
+
+function FeedTab({
+  feed,
+  teamOwner,
+  names,
+}: {
+  feed: GoalEvent[];
+  teamOwner: Map<number, string>;
+  names: Map<string, string>;
+}) {
+  const owned = feed.filter((e) => teamOwner.has(e.team_id));
+  if (owned.length === 0) {
+    return (
+      <EmptyState
+        icon={Radio}
+        title="No goals yet"
+        description="When a team in this pool scores, it shows up here — live."
+      />
+    );
+  }
+  return (
+    <>
+      <div className="flex items-center justify-between">
+        <Label>Live feed</Label>
+        <span className="text-xs text-white/30">most recent</span>
+      </div>
+      <div className="mt-3 space-y-2">
+        {owned.map((e) => {
+          const owner = teamOwner.get(e.team_id) ?? "";
+          return (
+            <motion.div
+              layout
+              key={e.id}
+              initial={{ opacity: 0, x: -12 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3"
+            >
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-grass/20 text-sm">⚽</span>
+              <div className="flex-1 text-sm">
+                <span className="inline-flex items-center gap-1.5 font-semibold">
+                  <Flag name={e.team_name} className="text-[13px]" /> {e.team_name}
+                </span>
+                <span className="text-white/40"> scored — </span>
+                <span className="font-semibold text-white/80">{nameOf(owner, names)}</span>
+              </div>
+              <span className="text-sm font-black text-grass">+{POINTS.goal}</span>
+            </motion.div>
+          );
+        })}
+      </div>
     </>
   );
 }

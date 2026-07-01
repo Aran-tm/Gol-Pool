@@ -78,6 +78,28 @@ export const isLive = (state: number) => state === 2 || state === 4;
 export const isFinished = (state: number) =>
   state === 5 || state === 10 || state === 13;
 
+/**
+ * Approximate live match minute for display, derived from kickoff + game state.
+ * The feed has no real clock, so this is an estimate (good enough for the live feel
+ * and the demo/replay). Returns "63'", "45+", "HT", "90+", or null when not applicable.
+ * ponytail: estimate — swap for a real feed minute if TxLINE ever exposes one.
+ */
+export function matchMinute(
+  kickoff: string | null,
+  gameState: number,
+  now = Date.now(),
+): string | null {
+  if (gameState === 3) return "HT";
+  if ((gameState !== 2 && gameState !== 4) || !kickoff) return null;
+  const elapsed = Math.floor((now - new Date(kickoff).getTime()) / 60000);
+  if (elapsed < 0) return null;
+  if (gameState === 2) return elapsed >= 45 ? "45+'" : `${Math.max(1, elapsed)}'`;
+  // Second half: subtract the ~15' half-time break from elapsed.
+  const m = elapsed - 15;
+  if (m <= 45) return "45'";
+  return m >= 90 ? "90+'" : `${m}'`;
+}
+
 // ── Auth + data helpers ──────────────────────────────────────────────
 export interface TxlineAuth {
   jwt: string; // guest session JWT

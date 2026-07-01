@@ -4,6 +4,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { motion, type Variants } from "framer-motion";
 import { Trophy, Radio, Wallet } from "lucide-react";
+import AnimatedBall from "../components/AnimatedBall";
 
 const container: Variants = {
   hidden: {},
@@ -46,17 +47,8 @@ export default function Landing() {
       </motion.span>
 
       {/* Animated ball */}
-      <motion.div variants={item} className="relative mb-2 h-32 w-32">
-        <div className="absolute inset-0 rounded-full bg-grass/30 blur-3xl" />
-        <motion.div
-          animate={{ y: [0, -12, 0] }}
-          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-          className="relative flex h-full w-full items-center justify-center"
-        >
-          <span className="text-[5.5rem] drop-shadow-[0_8px_24px_rgba(34,197,94,0.45)]">
-            ⚽
-          </span>
-        </motion.div>
+      <motion.div variants={item} className="mb-2">
+        <AnimatedBall size={132} />
       </motion.div>
 
       <motion.h1

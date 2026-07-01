@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Clock } from "lucide-react";
 import PageTransition from "../components/PageTransition";
 import { LiveBadge } from "../components/ui";
+import MatchMinute from "../components/MatchMinute";
 import { supabase } from "../lib/supabase";
 import { getMatches } from "../lib/api";
 import { isLive, isFinished, GAME_STATE } from "../lib/txline";
@@ -97,7 +98,12 @@ export default function MatchDetail() {
       {/* Score hero */}
       <div className="glass rounded-3xl p-6 text-center">
         <div className="flex items-center justify-center gap-2">
-          {live && <LiveBadge />}
+          {live && (
+            <>
+              <LiveBadge />
+              <MatchMinute match={match} className="text-sm font-black tabular-nums text-red-400" />
+            </>
+          )}
           {done && (
             <span className="rounded-full border border-white/20 bg-white/5 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-white/50">
               FT
