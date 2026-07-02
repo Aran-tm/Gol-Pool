@@ -6,7 +6,7 @@ import { HelpCircle, RefreshCw, Trophy, Users, Star, LogOut, Sparkles, X, Upload
 import PageTransition from "../components/PageTransition";
 import { getMyPools, getMatches, getAssignments, getProfiles, updateDisplayName, updateAvatar, uploadAvatarImage, type Assignment } from "../lib/api";
 import { memberPoints } from "../lib/scoring";
-import { fetchNfts, hasNftRpc, type NftItem } from "../lib/nft";
+import { fetchNfts, hasNftRpc, CURATED_NFTS, type NftItem } from "../lib/nft";
 import Flag from "../components/Flag";
 import Avatar from "../components/Avatar";
 import Skeleton from "../components/Skeleton";
@@ -372,6 +372,20 @@ export default function Profile() {
                   <Avatar wallet={wallet} name={displayName} size={84} />
                 </button>
                 {nfts.map((n) => (
+                  <button
+                    key={n.id}
+                    onClick={() => chooseAvatar(n.image)}
+                    className={`aspect-square overflow-hidden rounded-2xl border-2 transition hover:brightness-110 ${avatarUrl === n.image ? "border-grass" : "border-white/10"}`}
+                    title={n.name}
+                  >
+                    <img src={n.image} alt={n.name} className="h-full w-full object-cover" />
+                  </button>
+                ))}
+              </div>
+
+              <p className="mb-3 mt-5 text-xs font-semibold text-white/40">Or pick a collectible</p>
+              <div className="grid grid-cols-3 gap-3">
+                {CURATED_NFTS.map((n) => (
                   <button
                     key={n.id}
                     onClick={() => chooseAvatar(n.image)}
