@@ -20,30 +20,29 @@ Friends join a pool, each is randomly assigned World Cup teams, and the leaderbo
 
 ---
 
-## 📊 Project status (audited 2026-07-02)
-> Checked against the actual code, not against intentions — full evidence trail (file:line) lives in the 2026-07-02 audit report. This replaces the old self-reported checklist, which had drifted out of date since 2026-06-26.
+## 📊 Project status (live, 2026-07-02)
+> Audited against actual code on 2026-07-02 and verified live on 2026-07-02. This replaces the old self-reported checklist from 2026-06-26.
 
-### ✅ Done (12)
-- [x] Wallet sign-in/out — real signature auth (`signMessage`), verified server-side, not just a trusted client address
-- [x] Continuous TxLINE ingestion (`worker/ingest.ts`, `--watch`, polls every 15s)
+### ✅ Done (15)
+- [x] **GitHub repo public** — verified `"visibility": "public"` via API
+- [x] **Deployed to Vercel** — live at [gol-pool.vercel.app](https://gol-pool.vercel.app)
+- [x] **24/7 ingestion on-chain** — Edge Function `ingest` deployed and running; last poll: 33 fixtures scanned, 0 live, 0 updates, 11 skipped (cached), 0 failures
+- [x] Wallet sign-in/out — real signature auth (`signMessage`), verified server-side
+- [x] Continuous TxLINE ingestion (`worker/ingest.ts` + Edge Function, polls every 15s on schedule)
 - [x] Full flow: create pool → join → team assignment → live leaderboard — no stubs
 - [x] Scoring engine wired end-to-end (+2 goal / +3 win / +1 draw / +2 clean sheet)
 - [x] Synthetic replay for demo recording (`worker/replay.ts`)
-- [x] RLS on all 7 Supabase tables with correct policies; every write goes through the signature-verified `wallet-write` Edge Function, not raw client writes
-- [x] Zero secrets leaked to the client (`SUPABASE_SERVICE_ROLE_KEY` never appears in `src/`)
-- [x] API error handling — try/catch + visible error banners across Pools/PoolDetail/Dashboard
-- [x] Mobile-first layout (`max-w-md` container on all 11 pages, real touch swipe via framer-motion)
+- [x] RLS on all 7 Supabase tables with correct policies; every write goes through signature-verified `wallet-write` Edge Function
+- [x] Zero secrets leaked to the client
+- [x] API error handling — try/catch + visible error banners
+- [x] Mobile-first layout (`max-w-md` container on all 11 pages)
 - [x] Favicon
 - [x] Clean commit history
-- [x] Technical README (architecture, stack, scoring, TxLINE endpoints used)
+- [x] Technical README (architecture, stack, scoring, TxLINE endpoints, feedback)
 
-### 🔴 Critical — blocks launch or disqualifies (6)
-- [ ] **Deploy to Vercel** — not done yet
-- [ ] **Make the GitHub repo public** — currently 404s on the public API (likely private); the hackathon requires a public repo
-- [ ] **24/7 ingestion without a laptop running** — the `ingest` Edge Function is written (deploy + cron documented below and in `supabase/functions/ingest/README.md`) but not confirmed deployed/scheduled on the real project yet
-- [ ] **Demo video ≤5 min** — not recorded
-- [ ] **Refresh submission docs** — TxLINE feedback filled in below; keep this status section current from here on
-- [ ] **Submit on Superteam Earn**
+### 🔴 Critical — blocks launch or disqualifies (2)
+- [ ] **Demo video ≤5 min** — not recorded (use `npm run txline:replay` locally; guión abajo)
+- [ ] **Submit on Superteam Earn** — ready to go once video is done
 
 ### 🟡 High — weighs heavily on scoring (4)
 - [ ] No React error boundary — a render error currently shows a blank white screen with no recovery
@@ -62,24 +61,21 @@ Friends join a pool, each is randomly assigned World Cup teams, and the leaderbo
 
 ---
 
-## 🔓 Unblocking the 3 infra criticals
-These three need an interactive login only you can do — everything else is already prepared so each is a copy/paste job.
+## 🚀 What's left (2 blocking, then ship)
 
-**1. Make the repo public**
-[github.com/Aran-tm/Gol-Pool/settings](https://github.com/Aran-tm/Gol-Pool/settings) → Danger Zone → Change visibility → Public.
-(Full git history was checked — no secrets ever committed, safe to flip.)
+**1. Record the demo video** (~20 min of setup + recording)
+- [ ] `npm run dev` in one terminal
+- [ ] `npm run txline:replay` in another (run this before/during recording to populate live score changes)
+- [ ] Capture the leaderboard updating live as the replay runs (goal → +2 animate → podio → champion)
+- [ ] Upload to YouTube (unlisted) with the full flow: hook → problem → sign in → create pool → join → team assignment → live replay → TxLINE mention → vision of monetization → close
+- [ ] Script at the start of this README, section "Guión para el video"
 
-**2. Deploy to Vercel** — no CLI needed
-[vercel.com/new](https://vercel.com/new) → Import `Aran-tm/Gol-Pool` → framework auto-detects as Vite (`npm run build`, output `dist/`) → add the `VITE_*` env vars from `.env.example` → Deploy.
-
-**3. Deploy + schedule the ingest Edge Function**
-```bash
-npx supabase login
-npx supabase link --project-ref fsikncccjhdauudcnvqs
-npx supabase secrets set TXLINE_API_TOKEN=<value from .env.local> TXLINE_NETWORK=mainnet
-npx supabase functions deploy ingest --no-verify-jwt
-```
-Then in the Supabase dashboard → SQL Editor: enable `pg_cron` + `pg_net` (Database → Extensions), then run the `cron.schedule(...)` block from `supabase/functions/ingest/README.md`.
+**2. Submit on Superteam Earn**
+- [ ] Go to the hackathon submission form on Superteam Earn (TxODDS World Cup)
+- [ ] Fill in: project title, description (use pitch in "Pitch corto para el formulario" section of this README)
+- [ ] Attach: link to this repo, link to the live Vercel deploy ([gol-pool.vercel.app](https://gol-pool.vercel.app)), YouTube demo video link
+- [ ] Copy the TxLINE feedback from the "TxLINE feedback" section below
+- [ ] Submit before **2026-07-19 23:59 UTC**
 
 ---
 
@@ -169,6 +165,29 @@ golpool/
 ├── supabase/       schema.sql · policies.sql
 └── public/         favicon.svg
 ```
+
+## 📹 Guión para el video demo (≤5 min)
+1. **0:00–0:20** — **Gancho:** leaderboard moviéndose en vivo (gol cayendo, +2 flotante). El efecto primero.
+2. **0:20–0:50** — **Problema:** pool de WhatsApp/planilla manual → sin actualización en vivo.
+3. **0:50–1:30** — **Sign in:** conectar Phantom (mostrar la firma real, no un mock).
+4. **1:30–2:15** — **Crear + unirse:** crear un pool, unirse con otro perfil (otra wallet/navegador), mostrar asignación aleatoria de equipos.
+5. **2:15–3:30** — **El corazón:** correr `npm run txline:replay` (podés hacerlo en otra terminal antes y solo mostrar el resultado) → capturar leaderboard actualizándose solo — gol, +2 animado, podio, campeón.
+6. **3:30–4:00** — **Cómo funciona:** 15-20 seg mencionando TxLINE (endpoints), suscripción on-chain, Supabase Realtime.
+7. **4:00–4:30** — **Visión a futuro:** "Hoy free-to-play, pensado para sumar entry fees on-chain en el futuro" — dejalo claro como roadmap, no como feature activo.
+8. **4:30–5:00** — **Cierre:** links → [gol-pool.vercel.app](https://gol-pool.vercel.app), repo, equipo, track.
+
+**Subilo a YouTube como "no listado"** (unlisted) para asegurar el checklist sin comprometerte aún a esa versión — lo pasás a público o re-subís al final si querés pulir.
+
+---
+
+## 📋 Pitch para el formulario de submission (Superteam Earn)
+> GolPool turns a World Cup group-stage sweepstake into something that plays itself. Friends connect a Solana wallet, get World Cup teams assigned at random, and watch a leaderboard update in real time as goals happen — no spreadsheet, no manual updates. Powered by TxLINE live match data end-to-end: an ingestion pipeline polls TxLINE and pushes every goal straight into Supabase Realtime. Built as a foundation for on-chain entry-fee pools as the natural next step.
+
+**Repo:** [github.com/Aran-tm/Gol-Pool](https://github.com/Aran-tm/Gol-Pool)
+**Live:** [gol-pool.vercel.app](https://gol-pool.vercel.app)
+**TxLINE feedback:** copy from the section below ↓
+
+---
 
 ## 🗣️ TxLINE feedback (for submission)
 What worked: the on-chain subscribe → activate flow is genuinely nice — no API key request form, no waiting on a human. `GET /api/fixtures/snapshot` and `GET /api/scores/snapshot/{fixtureId}` were enough to build a real product on a simple polling loop.
