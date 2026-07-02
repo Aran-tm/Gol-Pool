@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
 import { UserPlus, Trophy, Zap, ChevronLeft, ChevronRight } from "lucide-react";
-import { updateDisplayName } from "../lib/api";
+import { updateDisplayName, getProfiles } from "../lib/api";
 import Avatar from "../components/Avatar";
 
 const SLIDES = [
@@ -34,16 +34,30 @@ const SLIDES = [
 export default function Onboarding() {
   const [[step, dir], setStep] = useState<[number, number]>([0, 0]);
   const [name, setName] = useState("");
+  const [saveError, setSaveError] = useState("");
   const navigate = useNavigate();
   const { publicKey, signMessage } = useWallet();
   const wallet = publicKey?.toBase58() ?? "";
+
+  // This wallet may already have a name (set from another device) — prefill it
+  // instead of showing blank and inviting an accidental overwrite.
+  useEffect(() => {
+    if (!wallet) return;
+    getProfiles([wallet]).then((profiles) => {
+      const existing = profiles.get(wallet)?.display_name;
+      if (existing) setName(existing);
+    });
+  }, [wallet]);
 
   async function finish() {
     const trimmed = name.trim();
     if (trimmed && wallet) {
       try {
         await updateDisplayName(wallet, signMessage, trimmed);
-      } catch { /* ignore */ }
+      } catch {
+        setSaveError("Couldn't save your name — check your wallet and try again.");
+        return;
+      }
     }
     localStorage.setItem("golpool_onboarded", "true");
     navigate("/dashboard", { replace: true });
@@ -147,11 +161,15 @@ export default function Onboarding() {
                 <Avatar wallet={wallet} name={name} size={64} />
                 <input
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    setSaveError("");
+                  }}
                   placeholder="Your name (optional)"
                   maxLength={40}
                   className="field w-full text-center"
                 />
+                {saveError && <p className="text-xs text-red-300">{saveError}</p>}
               </div>
             )}
 

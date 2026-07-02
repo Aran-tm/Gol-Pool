@@ -2,10 +2,17 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { WalletReadyState } from "@solana/wallet-adapter-base";
 import { motion, type Variants } from "framer-motion";
 import { Trophy, Radio, Wallet } from "lucide-react";
 import AnimatedBall from "../components/AnimatedBall";
 import { useWalletError } from "../solana/WalletContext";
+import { getProfiles } from "../lib/api";
+
+// Mobile browsers have no injected wallet provider (that only exists in a desktop
+// extension or Phantom's own in-app browser) — offer a deep link into Phantom instead
+// of a "Connect" button that would silently find nothing.
+const IS_MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 const container: Variants = {
   hidden: {},
@@ -17,17 +24,38 @@ const item: Variants = {
 };
 
 export default function Landing() {
-  const { connected, connecting, disconnect, select } = useWallet();
+  const { connected, connecting, disconnect, select, publicKey, wallets } = useWallet();
   const navigate = useNavigate();
   const { message, clear } = useWalletError();
   const [stuck, setStuck] = useState(false);
 
-  // Auto-navigate when wallet connects.
+  const noWalletDetected = wallets.every((w) => w.readyState !== WalletReadyState.Installed);
+  const phantomDeepLink = `https://phantom.app/ul/browse/${encodeURIComponent(window.location.href)}?ref=${encodeURIComponent(window.location.origin)}`;
+
+  // Auto-navigate when wallet connects. The local flag is just a fast-path cache —
+  // it lives per device, so a wallet that already has a name (set on another device)
+  // must still be checked against its actual profile before assuming onboarding is needed.
   useEffect(() => {
-    if (!connected) return;
-    const onboarded = localStorage.getItem("golpool_onboarded");
-    navigate(onboarded ? "/dashboard" : "/onboarding", { replace: true });
-  }, [connected, navigate]);
+    if (!connected || !publicKey) return;
+    if (localStorage.getItem("golpool_onboarded")) {
+      navigate("/dashboard", { replace: true });
+      return;
+    }
+    let cancelled = false;
+    getProfiles([publicKey.toBase58()])
+      .then((profiles) => {
+        if (cancelled) return;
+        const hasName = !!profiles.get(publicKey.toBase58())?.display_name;
+        if (hasName) localStorage.setItem("golpool_onboarded", "true");
+        navigate(hasName ? "/dashboard" : "/onboarding", { replace: true });
+      })
+      .catch(() => {
+        if (!cancelled) navigate("/onboarding", { replace: true });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [connected, publicKey, navigate]);
 
   // Phantom's approval popup can be missed, blocked, or ignored — if
   // "Connecting…" drags on, offer a way out instead of a dead button
@@ -94,10 +122,26 @@ export default function Landing() {
       </motion.p>
 
       <motion.div variants={item} className="mt-9 w-full">
-        <WalletMultiButton style={{ width: "100%", justifyContent: "center" }} />
-        <p className="mt-3 text-xs text-white/40">
-          Connect your wallet to enter — free, no fees
-        </p>
+        {IS_MOBILE && noWalletDetected ? (
+          <>
+            <a
+              href={phantomDeepLink}
+              className="btn-primary flex w-full items-center justify-center"
+            >
+              Open in Phantom
+            </a>
+            <p className="mt-3 text-xs text-white/40">
+              Your mobile browser can't see your wallet — this opens the app inside Phantom
+            </p>
+          </>
+        ) : (
+          <>
+            <WalletMultiButton style={{ width: "100%", justifyContent: "center" }} />
+            <p className="mt-3 text-xs text-white/40">
+              Connect your wallet to enter — free, no fees
+            </p>
+          </>
+        )}
         {message && (
           <p className="mt-3 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-3 text-xs text-red-300">
             {message}
