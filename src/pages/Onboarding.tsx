@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
 import { UserPlus, Trophy, Zap, ChevronLeft, ChevronRight } from "lucide-react";
@@ -36,6 +36,8 @@ export default function Onboarding() {
   const [name, setName] = useState("");
   const [saveError, setSaveError] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
+  const isReplay = new URLSearchParams(location.search).get("replay") === "1";
   const { publicKey, signMessage } = useWallet();
   const wallet = publicKey?.toBase58() ?? "";
 
@@ -50,17 +52,21 @@ export default function Onboarding() {
   }, [wallet]);
 
   async function finish() {
-    const trimmed = name.trim();
-    if (trimmed && wallet) {
-      try {
-        await updateDisplayName(wallet, signMessage, trimmed);
-      } catch {
-        setSaveError("Couldn't save your name — check your wallet and try again.");
-        return;
+    // Replaying the intro is read-only — no signature prompt, no chance of
+    // overwriting the wallet's name with whatever the field happened to show.
+    if (!isReplay) {
+      const trimmed = name.trim();
+      if (trimmed && wallet) {
+        try {
+          await updateDisplayName(wallet, signMessage, trimmed);
+        } catch {
+          setSaveError("Couldn't save your name — check your wallet and try again.");
+          return;
+        }
       }
+      localStorage.setItem("golpool_onboarded", "true");
     }
-    localStorage.setItem("golpool_onboarded", "true");
-    navigate("/dashboard", { replace: true });
+    navigate(isReplay ? "/profile" : "/dashboard", { replace: true });
   }
 
   function go(to: number) {
@@ -159,17 +165,26 @@ export default function Onboarding() {
             {isLast && (
               <div className="mt-7 flex w-full max-w-xs flex-col items-center gap-3">
                 <Avatar wallet={wallet} name={name} size={64} />
-                <input
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    setSaveError("");
-                  }}
-                  placeholder="Your name (optional)"
-                  maxLength={40}
-                  className="field w-full text-center"
-                />
-                {saveError && <p className="text-xs text-red-300">{saveError}</p>}
+                {isReplay ? (
+                  <p className="text-sm">
+                    <span className="text-white/40">Playing as </span>
+                    <span className="font-semibold text-white">{name || "Anonymous Player"}</span>
+                  </p>
+                ) : (
+                  <>
+                    <input
+                      value={name}
+                      onChange={(e) => {
+                        setName(e.target.value);
+                        setSaveError("");
+                      }}
+                      placeholder="Your name (optional)"
+                      maxLength={40}
+                      className="field w-full text-center"
+                    />
+                    {saveError && <p className="text-xs text-red-300">{saveError}</p>}
+                  </>
+                )}
               </div>
             )}
 

@@ -167,8 +167,7 @@ export default function Profile() {
   }
 
   function handleReplayOnboarding() {
-    localStorage.removeItem("golpool_onboarded");
-    navigate("/onboarding");
+    navigate("/onboarding?replay=1");
   }
 
   return (
