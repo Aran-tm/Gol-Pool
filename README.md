@@ -41,14 +41,14 @@ Friends join a pool, each is randomly assigned World Cup teams, and the leaderbo
 - [x] Technical README (architecture, stack, scoring, TxLINE endpoints, feedback)
 
 ### 🔴 Critical — blocks launch or disqualifies (2)
-- [ ] **Demo video ≤5 min** — not recorded (use `npm run txline:replay` locally; guión abajo)
-- [ ] **Submit on Superteam Earn** — ready to go once video is done
+- [x] **Demo video ≤5 min** — recorded (7min raw via Bandicam), editing down in CapCut now
+- [ ] **Submit on Superteam Earn** — ready to go once video is uploaded
+- [ ] **Confirm on a real phone** — mobile wallet-connect logic was reworked (`src/solana/mobile.ts` now checks for a truly-injected provider, not just adapter `readyState`); needs one real-device pass before judges click the link
 
-### 🟡 High — weighs heavily on scoring (4)
-- [ ] No React error boundary — a render error currently shows a blank white screen with no recovery
-- [ ] No Open Graph meta tags (`og:title`, `og:image`, …) — link previews on Discord/Twitter render empty
-- [ ] Lighthouse risk — production bundle is 1.1MB JS + 452KB CSS in a single chunk, no route-based code-splitting
-- [ ] Real device testing (iPhone/Android) still pending
+### 🟡 High — weighs heavily on scoring (2)
+- [x] React error boundary — `src/components/ErrorBoundary.tsx`, mounted in `main.tsx`; a render crash now shows a recovery screen instead of blank white
+- [x] Open Graph / Twitter meta tags — added to `index.html` (title, description, url, site_name, twitter:card). No custom `og:image` yet — worth a designed 1200×630 card later, hero.png in `src/assets` is unused and too small/square to repurpose
+- [ ] Lighthouse risk — production bundle is 1.1MB JS + 452KB CSS in a single chunk, no route-based code-splitting (confirmed via `npm run build`, Vite flags it directly)
 
 ### ⚪ Nice to have (7)
 - [ ] Analytics (`@vercel/analytics`)
