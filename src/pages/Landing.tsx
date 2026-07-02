@@ -2,17 +2,12 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import { WalletReadyState } from "@solana/wallet-adapter-base";
 import { motion, type Variants } from "framer-motion";
 import { Trophy, Radio, Wallet } from "lucide-react";
 import AnimatedBall from "../components/AnimatedBall";
 import { useWalletError } from "../solana/WalletContext";
+import { needsPhantomDeepLink, phantomDeepLink } from "../solana/mobile";
 import { getProfiles } from "../lib/api";
-
-// Mobile browsers have no injected wallet provider (that only exists in a desktop
-// extension or Phantom's own in-app browser) — offer a deep link into Phantom instead
-// of a "Connect" button that would silently find nothing.
-const IS_MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 const container: Variants = {
   hidden: {},
@@ -24,13 +19,12 @@ const item: Variants = {
 };
 
 export default function Landing() {
-  const { connected, connecting, disconnect, select, publicKey, wallets } = useWallet();
+  const { connected, connecting, disconnect, select, publicKey } = useWallet();
   const navigate = useNavigate();
   const { message, clear } = useWalletError();
   const [stuck, setStuck] = useState(false);
 
-  const noWalletDetected = wallets.every((w) => w.readyState !== WalletReadyState.Installed);
-  const phantomDeepLink = `https://phantom.app/ul/browse/${encodeURIComponent(window.location.href)}?ref=${encodeURIComponent(window.location.origin)}`;
+  const useDeepLink = needsPhantomDeepLink();
 
   // Auto-navigate when wallet connects. The local flag is just a fast-path cache —
   // it lives per device, so a wallet that already has a name (set on another device)
@@ -122,10 +116,10 @@ export default function Landing() {
       </motion.p>
 
       <motion.div variants={item} className="mt-9 w-full">
-        {IS_MOBILE && noWalletDetected ? (
+        {useDeepLink ? (
           <>
             <a
-              href={phantomDeepLink}
+              href={phantomDeepLink()}
               className="btn-primary flex w-full items-center justify-center"
             >
               Open in Phantom

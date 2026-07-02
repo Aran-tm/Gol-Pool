@@ -5,6 +5,7 @@ import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { ArrowLeft, Copy, Check, Zap } from "lucide-react";
 import { subscribeOnly, activateOnly, type SubscribeResult } from "../lib/subscribe";
 import { ACTIVE_NETWORK } from "../solana/WalletContext";
+import { needsPhantomDeepLink, phantomDeepLink } from "../solana/mobile";
 import { SELECTED_LEAGUES } from "../lib/txlineConfig";
 
 const KNOWN_TX_SIG = "";
@@ -96,7 +97,21 @@ export default function Setup() {
       </p>
 
       <div className="mt-6">
-        <WalletMultiButton style={{ width: "100%", justifyContent: "center" }} />
+        {needsPhantomDeepLink() ? (
+          <>
+            <a
+              href={phantomDeepLink()}
+              className="btn-primary flex w-full items-center justify-center"
+            >
+              Open in Phantom
+            </a>
+            <p className="mt-3 text-xs text-white/40">
+              Your mobile browser can't see your wallet — this opens the app inside Phantom
+            </p>
+          </>
+        ) : (
+          <WalletMultiButton style={{ width: "100%", justifyContent: "center" }} />
+        )}
       </div>
 
       {connected && publicKey && (
