@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { HashRouter } from "react-router-dom";
+import { Analytics } from "@vercel/analytics/react";
 import "@fontsource-variable/space-grotesk/index.css";
 import "flag-icons/css/flag-icons.min.css";
 import "./index.css";
@@ -17,5 +18,6 @@ createRoot(document.getElementById("root")!).render(
         </SolanaProviders>
       </HashRouter>
     </ErrorBoundary>
+    <Analytics />
   </StrictMode>
 );

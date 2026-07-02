@@ -47,17 +47,20 @@ Friends join a pool, each is randomly assigned World Cup teams, and the leaderbo
 
 ### 🟡 High — weighs heavily on scoring (2)
 - [x] React error boundary — `src/components/ErrorBoundary.tsx`, mounted in `main.tsx`; a render crash now shows a recovery screen instead of blank white
-- [x] Open Graph / Twitter meta tags — added to `index.html` (title, description, url, site_name, twitter:card). No custom `og:image` yet — worth a designed 1200×630 card later, hero.png in `src/assets` is unused and too small/square to repurpose
-- [ ] Lighthouse risk — production bundle is 1.1MB JS + 452KB CSS in a single chunk, no route-based code-splitting (confirmed via `npm run build`, Vite flags it directly)
+- [x] Open Graph / Twitter meta tags — added to `index.html` (title, description, url, site_name, image, twitter:card)
+
+### 🟠 Medium (1)
+- [x] Lighthouse risk — `App.tsx` now lazy-loads every route behind the wallet gate (`React.lazy` + one `Suspense` boundary). Landing/Onboarding stay eager. Confirmed via `npm run build`: Dashboard/Pools/Profile/MatchDetail/PoolDetail/Setup/HowToPlay/MatchCenter are now separate 2–35KB chunks loaded on demand, instead of baked into the single startup bundle.
 
 ### ⚪ Nice to have (7)
-- [ ] Analytics (`@vercel/analytics`)
-- [ ] PWA basics (`manifest.json`, `apple-touch-icon`)
-- [ ] Load testing
-- [ ] Social push (tweet, hackathon Discord)
-- [ ] Visual polish — country flags, goal celebration animation (`canvas-confetti` is installed but not wired everywhere)
-- [ ] `score_log` table has RLS but nothing writes to it yet
-- [ ] `VITE_SOLANA_NETWORK` is documented in `.env.example` but unused — network is hardcoded to `mainnet` in `WalletContext.tsx`
+- [x] Analytics (`@vercel/analytics`) — installed, `<Analytics />` mounted in `main.tsx`
+- [x] PWA basics — `public/manifest.json`, `apple-touch-icon.png` + `icon-192/512.png` generated from `favicon.svg`, linked in `index.html`
+- [x] `VITE_SOLANA_NETWORK` — removed from `.env.example`; it was undocumented-but-unused (network is intentionally hardcoded to `mainnet` in `WalletContext.tsx`, not meant to be configurable)
+- [x] Visual polish (flags) — re-audited: Dashboard/MatchCenter already show flags via `<MatchCard>`, Pools.tsx never renders team names. No gap found; only the live goal-celebration confetti (see below) is still open.
+- [ ] Goal celebration animation — confetti already fires on team-reveal/champion/pool-lock, but not on a live goal while watching `MatchDetail`. Needs the realtime handler there to diff new vs. already-seen events (it currently just reloads the full list on every change) before it can fire once per new goal.
+- [ ] Load testing — skipped by default: expected traffic is friends playing a sweepstake, not a public launch. Revisit only if that changes.
+- [ ] Social push (tweet, hackathon Discord) — not code; can draft copy from the README pitch on request
+- [ ] `score_log` table has RLS but nothing writes to it yet — still needs a decision: wire `worker/ingest.ts` to log points, or drop the table
 
 ---
 
