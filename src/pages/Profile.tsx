@@ -6,10 +6,10 @@ import { HelpCircle, RefreshCw, Trophy, Users, Star, LogOut, Sparkles, X, Upload
 import PageTransition from "../components/PageTransition";
 import { getMyPools, getMatches, getAssignments, getProfiles, updateDisplayName, updateAvatar, uploadAvatarImage, type Assignment } from "../lib/api";
 import { memberPoints } from "../lib/scoring";
-import { fetchNfts, hasNftRpc, CURATED_NFTS, type NftItem } from "../lib/nft";
+import { CURATED_NFTS } from "../lib/nft";
 import Flag from "../components/Flag";
 import Avatar from "../components/Avatar";
-import Skeleton, { Shimmer } from "../components/Skeleton";
+import Skeleton, { Shimmer, ShimmerImg } from "../components/Skeleton";
 import { Spinner } from "../components/ui";
 
 const short = (w: string) => `${w.slice(0, 4)}…${w.slice(-4)}`;
@@ -40,11 +40,8 @@ export default function Profile() {
   const [loaded, setLoaded] = useState(false);
   const [profileLoaded, setProfileLoaded] = useState(false);
 
-  // NFT avatar picker
+  // Avatar picker
   const [picking, setPicking] = useState(false);
-  const [nfts, setNfts] = useState<NftItem[]>([]);
-  const [nftState, setNftState] = useState<"idle" | "loading" | "error" | "done">("idle");
-  const [nftError, setNftError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
@@ -63,19 +60,8 @@ export default function Profile() {
       .finally(() => setProfileLoaded(true));
   }, [wallet]);
 
-  async function openPicker() {
+  function openPicker() {
     setPicking(true);
-    if (nfts.length > 0) return;
-    setNftState("loading");
-    setNftError("");
-    try {
-      const items = await fetchNfts(wallet);
-      setNfts(items);
-      setNftState("done");
-    } catch (e) {
-      setNftError(e instanceof Error ? e.message : String(e));
-      setNftState("error");
-    }
   }
 
   async function chooseAvatar(url: string | null) {
@@ -366,44 +352,7 @@ export default function Profile() {
                 <p className="mb-3 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-3 text-xs text-red-300">{uploadError}</p>
               )}
 
-              {!hasNftRpc() && (
-                <p className="rounded-xl border border-gold/30 bg-gold/[0.06] p-3 text-xs text-gold/90">
-                  Add a free Helius RPC to <code className="text-white">VITE_SOLANA_RPC</code> to load your NFTs. Your generated avatar is used meanwhile.
-                </p>
-              )}
-              {nftState === "loading" && <Skeleton rows={2} className="[&>div]:h-24" />}
-              {nftState === "error" && (
-                <p className="rounded-xl border border-red-500/30 bg-red-500/[0.06] p-3 text-xs text-red-300">{nftError}</p>
-              )}
-              {nftState === "done" && nfts.length === 0 && (
-                <p className="p-3 text-center text-sm text-white/50">
-                  No NFTs found in this wallet. This checks your real Solana mainnet
-                  wallet — buy or claim one on Magic Eden / Tensor, or connect a
-                  wallet that already holds one, then reopen this picker.
-                </p>
-              )}
-
-              <div className="mt-3 grid grid-cols-3 gap-3">
-                {/* Reset to generated avatar */}
-                <button
-                  onClick={() => chooseAvatar(null)}
-                  className={`grid aspect-square place-items-center rounded-2xl border-2 bg-white/[0.03] ${!avatarUrl ? "border-grass" : "border-white/10"}`}
-                >
-                  <Avatar wallet={wallet} name={displayName} size={84} />
-                </button>
-                {nfts.map((n) => (
-                  <button
-                    key={n.id}
-                    onClick={() => chooseAvatar(n.image)}
-                    className={`aspect-square overflow-hidden rounded-2xl border-2 transition hover:brightness-110 ${avatarUrl === n.image ? "border-grass" : "border-white/10"}`}
-                    title={n.name}
-                  >
-                    <img src={n.image} alt={n.name} className="h-full w-full object-cover" />
-                  </button>
-                ))}
-              </div>
-
-              <p className="mb-3 mt-5 text-xs font-semibold text-white/40">Or pick a collectible</p>
+              <p className="mb-3 mt-2 text-xs font-semibold text-white/40">Pick a collectible</p>
               <div className="grid grid-cols-3 gap-3">
                 {CURATED_NFTS.map((n) => (
                   <button
@@ -412,7 +361,7 @@ export default function Profile() {
                     className={`aspect-square overflow-hidden rounded-2xl border-2 transition hover:brightness-110 ${avatarUrl === n.image ? "border-grass" : "border-white/10"}`}
                     title={n.name}
                   >
-                    <img src={n.image} alt={n.name} className="h-full w-full object-cover" />
+                    <ShimmerImg src={n.image} alt={n.name} className="h-full w-full" />
                   </button>
                 ))}
               </div>
