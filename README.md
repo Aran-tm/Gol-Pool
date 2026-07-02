@@ -40,10 +40,10 @@ Friends join a pool, each is randomly assigned World Cup teams, and the leaderbo
 - [x] Clean commit history
 - [x] Technical README (architecture, stack, scoring, TxLINE endpoints, feedback)
 
-### 🔴 Critical — blocks launch or disqualifies (2)
-- [x] **Demo video ≤5 min** — recorded (7min raw via Bandicam), editing down in CapCut now
-- [ ] **Submit on Superteam Earn** — ready to go once video is uploaded
-- [ ] **Confirm on a real phone** — mobile wallet-connect logic was reworked (`src/solana/mobile.ts` now checks for a truly-injected provider, not just adapter `readyState`); needs one real-device pass before judges click the link
+### ✅ Critical — ALL COMPLETED (3)
+- [x] **Demo video ≤5 min** — ✅ Recorded & edited, live at [youtu.be/NCWtsdOpa3E](https://youtu.be/NCWtsdOpa3E)
+- [x] **Submit on Superteam Earn** — ✅ **DONE** (2026-07-02)
+- [x] **Confirm on a real phone** — ✅ Mobile wallet-connect tested real device; works seamlessly with Phantom injected provider
 
 ### 🟡 High — weighs heavily on scoring (2)
 - [x] React error boundary — `src/components/ErrorBoundary.tsx`, mounted in `main.tsx`; a render crash now shows a recovery screen instead of blank white
@@ -240,20 +240,6 @@ golpool/
 ├── supabase/       schema.sql · policies.sql
 └── public/         favicon.svg
 ```
-
-## 📹 Guión para el video demo (≤5 min)
-1. **0:00–0:20** — **Gancho:** leaderboard moviéndose en vivo (gol cayendo, +2 flotante). El efecto primero.
-2. **0:20–0:50** — **Problema:** pool de WhatsApp/planilla manual → sin actualización en vivo.
-3. **0:50–1:30** — **Sign in:** conectar Phantom (mostrar la firma real, no un mock).
-4. **1:30–2:15** — **Crear + unirse:** crear un pool, unirse con otro perfil (otra wallet/navegador), mostrar asignación aleatoria de equipos.
-5. **2:15–3:30** — **El corazón:** correr `npm run txline:replay` (podés hacerlo en otra terminal antes y solo mostrar el resultado) → capturar leaderboard actualizándose solo — gol, +2 animado, podio, campeón.
-6. **3:30–4:00** — **Cómo funciona:** 15-20 seg mencionando TxLINE (endpoints), suscripción on-chain, Supabase Realtime.
-7. **4:00–4:30** — **Visión a futuro:** "Hoy free-to-play, pensado para sumar entry fees on-chain en el futuro" — dejalo claro como roadmap, no como feature activo.
-8. **4:30–5:00** — **Cierre:** links → [gol-pool.vercel.app](https://gol-pool.vercel.app), repo, equipo, track.
-
-**Subilo a YouTube como "no listado"** (unlisted) para asegurar el checklist sin comprometerte aún a esa versión — lo pasás a público o re-subís al final si querés pulir.
-
----
 
 ## 📋 Pitch para el formulario de submission (Superteam Earn)
 > GolPool turns a World Cup group-stage sweepstake into something that plays itself. Friends connect a Solana wallet, get World Cup teams assigned at random, and watch a leaderboard update in real time as goals happen — no spreadsheet, no manual updates. Powered by TxLINE live match data end-to-end: an ingestion pipeline polls TxLINE and pushes every goal straight into Supabase Realtime. Built as a foundation for on-chain entry-fee pools as the natural next step.
