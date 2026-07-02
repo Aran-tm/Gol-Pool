@@ -15,7 +15,7 @@ import type { MatchRow } from "../lib/scoring";
 
 interface PoolCard {
   pool: Pool;
-  memberCount: number;
+  memberCount: number | null; // null = count failed to load
 }
 
 export default function Dashboard() {
@@ -26,24 +26,31 @@ export default function Dashboard() {
   const [pools, setPools] = useState<PoolCard[]>([]);
   const [matches, setMatches] = useState<MatchRow[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     if (!wallet) return;
-    const [p, m] = await Promise.all([getMyPools(wallet), getMatches()]);
-    setMatches(m);
+    try {
+      const [p, m] = await Promise.all([getMyPools(wallet), getMatches()]);
+      setMatches(m);
 
-    // Enrich pools with member count.
-    const enriched = await Promise.all(
-      p.map(async (pool) => {
-        let count = 0;
-        try {
-          count = await getPoolMemberCount(pool.id);
-        } catch { /* ignore */ }
-        return { pool, memberCount: count };
-      }),
-    );
-    setPools(enriched);
-    setLoaded(true);
+      // Enrich pools with member count.
+      const enriched = await Promise.all(
+        p.map(async (pool) => {
+          let count: number | null = null;
+          try {
+            count = await getPoolMemberCount(pool.id);
+          } catch { /* shown as "?" below */ }
+          return { pool, memberCount: count };
+        }),
+      );
+      setPools(enriched);
+      setError("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoaded(true);
+    }
   }, [wallet]);
 
   useEffect(() => {
@@ -72,6 +79,12 @@ export default function Dashboard() {
         </div>
         <LiveBadge />
       </div>
+
+      {error && (
+        <p className="mt-4 rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
+          {error}
+        </p>
+      )}
 
       {/* Live matches strip */}
       <section className="mt-6">
@@ -155,7 +168,7 @@ export default function Dashboard() {
                     <span className="font-mono text-gold">#{pool.join_code}</span>
                     <span>·</span>
                     <span>
-                      {memberCount} player{memberCount === 1 ? "" : "s"}
+                      {memberCount ?? "?"} player{memberCount === 1 ? "" : "s"}
                     </span>
                   </div>
                 </div>

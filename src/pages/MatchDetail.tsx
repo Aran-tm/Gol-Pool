@@ -30,21 +30,29 @@ export default function MatchDetail() {
   const [match, setMatch] = useState<MatchRow | null>(null);
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     if (!fid) return;
-    const matches = await getMatches();
-    const m = matches.find((x) => x.fixture_id === fid) ?? null;
-    setMatch(m);
+    try {
+      const matches = await getMatches();
+      const m = matches.find((x) => x.fixture_id === fid) ?? null;
+      setMatch(m);
 
-    // Load goal events from Supabase.
-    const { data } = await supabase
-      .from("match_events")
-      .select("*")
-      .eq("fixture_id", fid)
-      .order("seq", { ascending: true });
-    setEvents((data ?? []) as MatchEvent[]);
-    setLoading(false);
+      // Load goal events from Supabase.
+      const { data, error: supaError } = await supabase
+        .from("match_events")
+        .select("*")
+        .eq("fixture_id", fid)
+        .order("seq", { ascending: true });
+      if (supaError) throw supaError;
+      setEvents((data ?? []) as MatchEvent[]);
+      setError("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
   }, [fid]);
 
   useEffect(() => {
@@ -90,7 +98,7 @@ export default function MatchDetail() {
   if (!match) {
     return (
       <PageTransition className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pt-8 pb-24">
-        <p className="mt-20 text-center text-white/40">Match not found.</p>
+        <p className="mt-20 text-center text-white/40">{error || "Match not found."}</p>
       </PageTransition>
     );
   }

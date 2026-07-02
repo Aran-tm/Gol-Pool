@@ -21,10 +21,17 @@ export default function MatchCenter() {
   const [matches, setMatches] = useState<MatchRow[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState("");
 
   const load = useCallback(async () => {
-    setMatches(await getMatches());
-    setLoaded(true);
+    try {
+      setMatches(await getMatches());
+      setError("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoaded(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -79,6 +86,12 @@ export default function MatchCenter() {
   return (
     <PageTransition className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pt-8 pb-24">
       <h1 className="text-2xl font-black">Matches</h1>
+
+      {error && (
+        <p className="mt-4 rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
+          {error}
+        </p>
+      )}
 
       {/* Filter tabs */}
       <div className="no-scrollbar mt-4 flex gap-1.5 overflow-x-auto">

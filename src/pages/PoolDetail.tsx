@@ -80,6 +80,7 @@ export default function PoolDetail() {
   const [feed, setFeed] = useState<GoalEvent[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState<"lock" | "delete" | "">("");
+  const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   // Transient per-wallet point bumps → floating "+N" + gold flash on the leaderboard.
