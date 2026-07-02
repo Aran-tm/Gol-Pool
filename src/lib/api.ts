@@ -73,7 +73,7 @@ export async function setPoolStatus(poolId: string, wallet: string, signMessage:
   await walletWrite(wallet, signMessage, "set_pool_status", { pool_id: poolId, status });
 }
 
-/** Owner-only: delete a pool (cascades to members, assignments, score_log). Ownership is checked server-side. */
+/** Owner-only: delete a pool (cascades to members, assignments). Ownership is checked server-side. */
 export async function deletePool(poolId: string, wallet: string, signMessage: SignMessage): Promise<void> {
   await walletWrite(wallet, signMessage, "delete_pool", { pool_id: poolId });
 }

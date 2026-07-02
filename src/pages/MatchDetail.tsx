@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import confetti from "canvas-confetti";
 import { ArrowLeft, Clock } from "lucide-react";
 import PageTransition from "../components/PageTransition";
 import { LiveBadge } from "../components/ui";
@@ -22,6 +23,18 @@ interface MatchEvent {
   created_at: string;
 }
 
+// GolPool green/gold burst — matches the reveal & champion celebrations.
+function celebrateGoal() {
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  confetti({
+    particleCount: 130,
+    spread: 80,
+    startVelocity: 45,
+    origin: { y: 0.55 },
+    colors: ["#22c55e", "#ffd166", "#ffffff", "#0b6e4f"],
+  });
+}
+
 export default function MatchDetail() {
   const { fixtureId } = useParams<{ fixtureId: string }>();
   const navigate = useNavigate();
@@ -31,6 +44,9 @@ export default function MatchDetail() {
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // Goal count already on screen. null until the first load so we never celebrate
+  // pre-existing goals when you open a match that's already in progress.
+  const seenGoals = useRef<number | null>(null);
 
   const load = useCallback(async () => {
     if (!fid) return;
@@ -70,6 +86,19 @@ export default function MatchDetail() {
       supabase.removeChannel(channel);
     };
   }, [load, fid]);
+
+  // Fire confetti once per goal that lands while you're watching (not on the
+  // goals that were already there when the page loaded).
+  useEffect(() => {
+    const goals = events.filter((e) => e.type === "goal").length;
+    if (seenGoals.current !== null && goals > seenGoals.current) celebrateGoal();
+    seenGoals.current = goals;
+  }, [events]);
+
+  // A new match id reuses this component — reset so its existing goals don't celebrate.
+  useEffect(() => {
+    seenGoals.current = null;
+  }, [fid]);
 
   if (loading) {
     return (

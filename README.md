@@ -32,7 +32,7 @@ Friends join a pool, each is randomly assigned World Cup teams, and the leaderbo
 - [x] Full flow: create pool → join → team assignment → live leaderboard — no stubs
 - [x] Scoring engine wired end-to-end (+2 goal / +3 win / +1 draw / +2 clean sheet)
 - [x] Synthetic replay for demo recording (`worker/replay.ts`)
-- [x] RLS on all 7 Supabase tables with correct policies; every write goes through signature-verified `wallet-write` Edge Function
+- [x] RLS on all 6 Supabase tables with correct policies; every write goes through signature-verified `wallet-write` Edge Function
 - [x] Zero secrets leaked to the client
 - [x] API error handling — try/catch + visible error banners
 - [x] Mobile-first layout (`max-w-md` container on all 11 pages)
@@ -57,28 +57,35 @@ Friends join a pool, each is randomly assigned World Cup teams, and the leaderbo
 - [x] PWA basics — `public/manifest.json`, `apple-touch-icon.png` + `icon-192/512.png` generated from `favicon.svg`, linked in `index.html`
 - [x] `VITE_SOLANA_NETWORK` — removed from `.env.example`; it was undocumented-but-unused (network is intentionally hardcoded to `mainnet` in `WalletContext.tsx`, not meant to be configurable)
 - [x] Visual polish (flags) — re-audited: Dashboard/MatchCenter already show flags via `<MatchCard>`, Pools.tsx never renders team names. No gap found; only the live goal-celebration confetti (see below) is still open.
-- [ ] Goal celebration animation — confetti already fires on team-reveal/champion/pool-lock, but not on a live goal while watching `MatchDetail`. Needs the realtime handler there to diff new vs. already-seen events (it currently just reloads the full list on every change) before it can fire once per new goal.
-- [ ] Load testing — skipped by default: expected traffic is friends playing a sweepstake, not a public launch. Revisit only if that changes.
-- [ ] Social push (tweet, hackathon Discord) — not code; can draft copy from the README pitch on request
-- [ ] `score_log` table has RLS but nothing writes to it yet — still needs a decision: wire `worker/ingest.ts` to log points, or drop the table
+- [x] Goal celebration animation — `MatchDetail` now fires a green/gold confetti burst once per goal that lands while you're watching (diffs new vs. already-seen goals via a ref; respects `prefers-reduced-motion`). Reveal/champion/pool-lock celebrations unchanged.
+- [x] Load testing — see "Load & capacity" below. The public deploy sits behind Vercel edge bot-protection (403s all synthetic/non-browser traffic), so external HTTP load testing isn't representative; capacity rests on Vercel's CDN + Supabase's managed scaling, both well past a friends-sweepstake's needs.
+- [x] Social push — X/Twitter launch thread drafted (6 tweets + image slots); ready to post once the demo video is live. Not committed to the repo (marketing copy).
+- [x] `score_log` — dropped. Points are derived live client-side (`src/lib/scoring.ts`); the table was never read or written. Removed from `schema.sql`/`policies.sql`; run `supabase/drop_score_log.sql` once to clear it from the live DB. A per-pool ledger is a deliberate future step (entry-fee payouts), not MVP.
 
 ---
 
-## 🚀 What's left (2 blocking, then ship)
+## 🚀 What's left (1 blocking, then ship)
 
-**1. Record the demo video** (~20 min of setup + recording)
-- [ ] `npm run dev` in one terminal
-- [ ] `npm run txline:replay` in another (run this before/during recording to populate live score changes)
-- [ ] Capture the leaderboard updating live as the replay runs (goal → +2 animate → podio → champion)
-- [ ] Upload to YouTube (unlisted) with the full flow: hook → problem → sign in → create pool → join → team assignment → live replay → TxLINE mention → vision of monetization → close
-- [ ] Script at the start of this README, section "Guión para el video"
+**Demo video** — ✅ recorded (Bandicam), edited (CapCut), live at [youtu.be/NCWtsdOpa3E](https://youtu.be/NCWtsdOpa3E). Real-device mobile check ✅ passed.
 
-**2. Submit on Superteam Earn**
+**Submit on Superteam Earn** (the only remaining blocker)
 - [ ] Go to the hackathon submission form on Superteam Earn (TxODDS World Cup)
-- [ ] Fill in: project title, description (use pitch in "Pitch corto para el formulario" section of this README)
-- [ ] Attach: link to this repo, link to the live Vercel deploy ([gol-pool.vercel.app](https://gol-pool.vercel.app)), YouTube demo video link
+- [ ] Fill in: project title, description (use pitch in "Pitch para el formulario" section of this README)
+- [ ] Attach: [repo](https://github.com/Aran-tm/Gol-Pool) · [live deploy](https://gol-pool.vercel.app) · [demo video](https://youtu.be/NCWtsdOpa3E)
 - [ ] Copy the TxLINE feedback from the "TxLINE feedback" section below
 - [ ] Submit before **2026-07-19 23:59 UTC**
+
+---
+
+## 📈 Load & capacity
+
+Load testing was attempted with `npx autocannon` against the live deploy. Finding: the public URL is shielded by Vercel's edge bot-protection and returns **403 to all non-browser / synthetic traffic** (curl and autocannon alike, even with a browser User-Agent — it requires solving a JS/cookie challenge that real browsers pass transparently). So external HTTP load testing isn't representative and wasn't forced past that control.
+
+Capacity therefore rests on two managed layers, both far above this app's target (friends running a sweepstake, not a public launch):
+- **Frontend** — static bundle on Vercel's global CDN (now route-split, ~285KB gzip initial JS).
+- **Data** — Supabase (managed Postgres + connection pooling + Realtime), which handles its own scaling and rate limits.
+
+Reproduce: `npx autocannon -c 5 -d 10 https://gol-pool.vercel.app` (expect 403s — that's the edge protection, not the app).
 
 ---
 
@@ -95,7 +102,7 @@ Friends join a pool, each is randomly assigned World Cup teams, and the leaderbo
 ┌───────────────┴──────────────────────────────────┐
 │  Supabase (Postgres + Realtime)                   │
 │  pools · pool_members · team_assignments ·        │
-│  matches · match_events · score_log · profiles    │
+│  matches · match_events · profiles                │
 └───────────────▲───────────────────────────────────┘
                 │ writes match state + goal events
 ┌───────────────┴──────────────────────────────────┐
@@ -188,6 +195,7 @@ golpool/
 
 **Repo:** [github.com/Aran-tm/Gol-Pool](https://github.com/Aran-tm/Gol-Pool)
 **Live:** [gol-pool.vercel.app](https://gol-pool.vercel.app)
+**Demo video:** [youtu.be/NCWtsdOpa3E](https://youtu.be/NCWtsdOpa3E)
 **TxLINE feedback:** copy from the section below ↓
 
 ---

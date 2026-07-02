@@ -97,28 +97,18 @@ create table if not exists match_events (
   unique (fixture_id, seq, type, team_id)
 );
 
--- ─────────────────────────────────────────────────────────────
--- SCORE LOG — audit trail of every point awarded (also the pool live feed)
--- ─────────────────────────────────────────────────────────────
-create table if not exists score_log (
-  id             bigint generated always as identity primary key,
-  pool_id        uuid not null references pools(id) on delete cascade,
-  wallet_address text not null,
-  fixture_id     bigint,
-  team_id        integer,
-  points         integer not null,
-  reason         text not null,                       -- 'goal' | 'win' | 'clean_sheet' | 'progression' | ...
-  created_at     timestamptz not null default now()
-);
+-- Note: points are derived live in the client (src/lib/scoring.ts) from
+-- matches + team_assignments + match_events — there is no persisted score table.
+-- A per-pool point ledger (for an audit trail / entry-fee payouts) is a deliberate
+-- future step, not part of the current MVP.
 
 -- Helpful indexes
 create index if not exists idx_members_pool      on pool_members(pool_id);
 create index if not exists idx_assignments_pool  on team_assignments(pool_id);
 create index if not exists idx_events_fixture    on match_events(fixture_id);
-create index if not exists idx_scorelog_pool     on score_log(pool_id);
 
 -- Realtime: let the browser leaderboard subscribe to live changes.
-alter publication supabase_realtime add table pool_members, match_events, matches, score_log;
+alter publication supabase_realtime add table pool_members, match_events, matches;
 
--- RLS: enable later. For the hackathon MVP, reads are public; writes to matches/events/score_log
+-- RLS: enable later. For the hackathon MVP, reads are public; writes to matches/events
 -- happen only via the ingestion worker using the service-role key (bypasses RLS).

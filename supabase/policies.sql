@@ -8,7 +8,7 @@
 -- with the anon key (RLS defaults to deny when no policy matches). All writes to these tables —
 -- and the avatars bucket — go through wallet-write, which verifies the signature server-side
 -- and then writes with the service-role key (bypasses RLS by design).
--- matches / match_events / score_log are written only by the ingestion worker (service-role key).
+-- matches / match_events are written only by the ingestion worker (service-role key).
 
 alter table profiles          enable row level security;
 alter table pools             enable row level security;
@@ -16,7 +16,6 @@ alter table pool_members      enable row level security;
 alter table team_assignments  enable row level security;
 alter table matches           enable row level security;
 alter table match_events      enable row level security;
-alter table score_log         enable row level security;
 
 -- Public read on everything (drop-if-exists keeps this re-runnable).
 drop policy if exists "read_all" on profiles;
@@ -25,7 +24,6 @@ drop policy if exists "read_all" on pool_members;
 drop policy if exists "read_all" on team_assignments;
 drop policy if exists "read_all" on matches;
 drop policy if exists "read_all" on match_events;
-drop policy if exists "read_all" on score_log;
 
 create policy "read_all" on profiles         for select using (true);
 create policy "read_all" on pools            for select using (true);
@@ -33,7 +31,6 @@ create policy "read_all" on pool_members     for select using (true);
 create policy "read_all" on team_assignments for select using (true);
 create policy "read_all" on matches          for select using (true);
 create policy "read_all" on match_events     for select using (true);
-create policy "read_all" on score_log        for select using (true);
 
 -- Formerly-public write policies on profiles/pools/pool_members/team_assignments — removed.
 -- Writes now happen only via wallet-write (service-role, signature-verified). Drops are kept
