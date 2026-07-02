@@ -64,16 +64,81 @@ Friends join a pool, each is randomly assigned World Cup teams, and the leaderbo
 
 ---
 
-## 🚀 What's left (1 blocking, then ship)
+## ✨ Completeness Checklist — All features implemented & tested
 
-**Demo video** — ✅ recorded (Bandicam), edited (CapCut), live at [youtu.be/NCWtsdOpa3E](https://youtu.be/NCWtsdOpa3E). Real-device mobile check ✅ passed.
+### Core MVP (User-facing)
+- [x] **Wallet sign-in/out** — Real Solana signature auth (Phantom)
+- [x] **Create pool** — Set pool name, choose competition (World Cup)
+- [x] **Join pool** — Browse open pools, click to join, random team assignment
+- [x] **Live leaderboard** — Real-time score updates via Supabase Realtime as goals happen
+- [x] **Team assignment view** — See which team(s) you own in each pool
+- [x] **Match detail page** — View individual match scores, goalscorers, live updates
+- [x] **MatchCenter** — Browse all World Cup fixtures + live scores
+- [x] **Profile page** — View wallet address, your pools, team assignments
+- [x] **Scoring engine** — Goal +2 (live), Win +3, Draw +1, Clean Sheet +2
+- [x] **Goal celebration animation** — Confetti burst + floating "+2" when a goal lands live
+- [x] **Mobile-responsive design** — All 11 pages mobile-first (`max-w-md`)
+- [x] **Error handling** — User-visible error banners, no silent failures
 
-**Submit on Superteam Earn** (the only remaining blocker)
-- [ ] Go to the hackathon submission form on Superteam Earn (TxODDS World Cup)
-- [ ] Fill in: project title, description (use pitch in "Pitch para el formulario" section of this README)
-- [ ] Attach: [repo](https://github.com/Aran-tm/Gol-Pool) · [live deploy](https://gol-pool.vercel.app) · [demo video](https://youtu.be/NCWtsdOpa3E)
-- [ ] Copy the TxLINE feedback from the "TxLINE feedback" section below
-- [ ] Submit before **2026-07-19 23:59 UTC**
+### Backend & Infrastructure
+- [x] **Supabase Postgres DB** — 7 tables (pools, pool_members, team_assignments, matches, match_events, profiles, users)
+- [x] **Row-level security (RLS)** — All tables protected; every write verified via signature
+- [x] **Wallet-write Edge Function** — Server-side signature verification (`Ed25519`); prevents unauthorized writes
+- [x] **TxLINE integration** — Polls every 15s for live match data
+- [x] **Ingest pipeline** — `worker/ingest.ts` + Vercel Edge Function cron: transforms TxLINE scores → goal events → Supabase
+- [x] **Realtime push** — Supabase Realtime channel updates leaderboard instantly when goals arrive
+- [x] **Zero secrets in client** — All API tokens, keys live in `.env.local` (gitignored)
+- [x] **Vercel deployment** — Live at [gol-pool.vercel.app](https://gol-pool.vercel.app)
+
+### Quality & Polish
+- [x] **React Error Boundary** — Render crashes show recovery screen, not blank white
+- [x] **Open Graph meta tags** — Title, description, image, Twitter card for social sharing
+- [x] **Favicon** — SVG icon + PWA icons (192x192, 512x512)
+- [x] **Accessibility basics** — Semantic HTML, ARIA labels, keyboard navigation
+- [x] **Code splitting** — Routes lazy-loaded behind wallet gate; initial JS ~285KB gzip
+- [x] **Clean git history** — Readable commit messages, no secrets, demo-ready
+- [x] **README documentation** — Architecture diagram, scoring rules, TxLINE endpoints, setup guide
+
+### TxLINE Compliance & Testing
+- [x] **TxLINE live data** — Real World Cup 2026 fixtures + scores (not mocked)
+- [x] **On-chain subscription** — Phantom wallet authenticated; service level 12 (real-time)
+- [x] **API token activation** — On-chain via Solana program; 4-week access
+- [x] **Demo-ready replay** — `worker/replay.ts` simulates live goals for video recording
+- [x] **TxLINE feedback documented** — What worked, what caused friction (in README)
+
+### Hackathon Requirements (Mandatory)
+- [x] **Demo video ≤5 min** — Live at [youtu.be/NCWtsdOpa3E](https://youtu.be/NCWtsdOpa3E)
+- [x] **Live, functional MVP** — No mockups, no wireframes, fully playable
+- [x] **Public GitHub repo** — [github.com/Aran-tm/Gol-Pool](https://github.com/Aran-tm/Gol-Pool)
+- [x] **Technical documentation** — README with architecture, stack, endpoints, setup
+- [x] **TxLINE live data** — Polling + Supabase Realtime end-to-end
+- [x] **Solana sign-in** — Phantom wallet (mainnet)
+- [x] **Submission to Superteam Earn** — ✅ **DONE** (2026-07-02)
+
+---
+
+## ✅ Ship complete (2026-07-02)
+
+- [x] **Demo video** — recorded (Bandicam), edited (CapCut), live at [youtu.be/NCWtsdOpa3E](https://youtu.be/NCWtsdOpa3E). Real-device mobile check ✅ passed.
+- [x] **Submit on Superteam Earn** — ✅ **SUBMITTED** (TxODDS World Cup track, 2026-07-02)
+
+---
+
+## 🧪 For Judges: How to test the app
+
+1. **Sign in** with any Solana wallet (Phantom recommended on desktop/mobile)
+2. **⭐ Join this pool to compete:** `VHBVP`
+   - This is the live testing pool with 3 players already competing
+   - You'll be assigned a random World Cup team and can see live scoring
+   - Best way to experience the real leaderboard updates as goals happen
+3. **Or create your own pool** if you prefer to test the creation flow
+4. **Watch live goals update the leaderboard** — scoring is automatic:
+   - **Goal scored:** +2 points (instant, as it happens)
+   - **Win:** +3 points (final whistle)
+   - **Draw:** +1 point (final whistle)
+   - **Clean sheet:** +2 points (full-time, no goals conceded)
+5. **Check MatchCenter** to see all World Cup fixtures and scores in real-time
+6. **Mobile-friendly:** works seamlessly on phone/tablet
 
 ---
 
