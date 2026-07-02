@@ -1,6 +1,7 @@
 // GolPool data layer over Supabase. Identity = Solana wallet address.
 import { supabase } from "./supabase";
-import { distinctTeams, type MatchRow } from "./scoring";
+import { type MatchRow } from "./scoring";
+import { walletWrite, type SignMessage } from "./walletAuth";
 
 export interface Pool {
   id: string;
@@ -22,24 +23,6 @@ export interface Assignment {
   wallet_address: string;
   team_id: number;
   team_name: string;
-}
-
-const TEAMS_PER_MEMBER = 4;
-// Keeps every member's team allotment full: today's World Cup team supply is 39-48,
-// and beyond 10 members some would silently get a partial or empty team set.
-const MAX_PLAYERS_PER_POOL = 10;
-
-function randomCode(len = 5): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let out = "";
-  for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
-  return out;
-}
-
-export async function ensureProfile(wallet: string, displayName?: string) {
-  await supabase
-    .from("profiles")
-    .upsert({ wallet_address: wallet, display_name: displayName ?? null }, { onConflict: "wallet_address" });
 }
 
 export async function getMatches(): Promise<MatchRow[]> {
