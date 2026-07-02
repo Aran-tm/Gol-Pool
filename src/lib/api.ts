@@ -25,6 +25,9 @@ export interface Assignment {
 }
 
 const TEAMS_PER_MEMBER = 4;
+// Keeps every member's team allotment full: today's World Cup team supply is 39-48,
+// and beyond 10 members some would silently get a partial or empty team set.
+const MAX_PLAYERS_PER_POOL = 10;
 
 function randomCode(len = 5): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -55,10 +58,11 @@ async function assignTeams(poolId: string, wallet: string, count = TEAMS_PER_MEM
   const matches = await getMatches();
   const all = distinctTeams(matches);
 
-  const { data: taken } = await supabase
+  const { data: taken, error: takenError } = await supabase
     .from("team_assignments")
     .select("team_id")
     .eq("pool_id", poolId);
+  if (takenError) throw takenError; // otherwise a failed read here silently double-assigns taken teams
   const takenIds = new Set((taken ?? []).map((t) => t.team_id));
 
   const available = all.filter((t) => !takenIds.has(t.id));
@@ -108,6 +112,10 @@ export async function joinPool(joinCode: string, wallet: string): Promise<Pool> 
     .maybeSingle();
 
   if (!existing) {
+    const memberCount = await getPoolMemberCount(pool.id);
+    if (memberCount >= MAX_PLAYERS_PER_POOL) {
+      throw new Error(`This pool is full (max ${MAX_PLAYERS_PER_POOL} players).`);
+    }
     await supabase.from("pool_members").insert({ pool_id: pool.id, wallet_address: wallet });
     await assignTeams(pool.id, wallet);
   }
@@ -115,18 +123,21 @@ export async function joinPool(joinCode: string, wallet: string): Promise<Pool> 
 }
 
 export async function getMyPools(wallet: string): Promise<Pool[]> {
-  const { data: memberships } = await supabase
+  const { data: memberships, error: membershipsError } = await supabase
     .from("pool_members")
     .select("pool_id")
     .eq("wallet_address", wallet);
+  if (membershipsError) throw membershipsError;
   const ids = (memberships ?? []).map((m) => m.pool_id);
   if (ids.length === 0) return [];
-  const { data } = await supabase.from("pools").select("*").in("id", ids).order("created_at", { ascending: false });
+  const { data, error } = await supabase.from("pools").select("*").in("id", ids).order("created_at", { ascending: false });
+  if (error) throw error;
   return (data ?? []) as Pool[];
 }
 
 export async function getPool(poolId: string): Promise<Pool | null> {
-  const { data } = await supabase.from("pools").select("*").eq("id", poolId).single();
+  const { data, error } = await supabase.from("pools").select("*").eq("id", poolId).single();
+  if (error && error.code !== "PGRST116") throw error; // PGRST116 = no row found → null is correct
   return (data as Pool) ?? null;
 }
 
@@ -151,12 +162,14 @@ export async function deletePool(poolId: string, wallet: string): Promise<void> 
 }
 
 export async function getMembers(poolId: string): Promise<Member[]> {
-  const { data } = await supabase.from("pool_members").select("*").eq("pool_id", poolId);
+  const { data, error } = await supabase.from("pool_members").select("*").eq("pool_id", poolId);
+  if (error) throw error;
   return (data ?? []) as Member[];
 }
 
 export async function getAssignments(poolId: string): Promise<Assignment[]> {
-  const { data } = await supabase.from("team_assignments").select("*").eq("pool_id", poolId);
+  const { data, error } = await supabase.from("team_assignments").select("*").eq("pool_id", poolId);
+  if (error) throw error;
   return (data ?? []) as Assignment[];
 }
 
@@ -178,10 +191,11 @@ export interface ProfileInfo {
 /** Fetch display names + avatars for a set of wallets → Map<wallet, ProfileInfo>. */
 export async function getProfiles(wallets: string[]): Promise<Map<string, ProfileInfo>> {
   if (wallets.length === 0) return new Map();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("profiles")
     .select("wallet_address,display_name,avatar_url")
     .in("wallet_address", wallets);
+  if (error) throw error;
   const map = new Map<string, ProfileInfo>();
   for (const p of data ?? []) {
     map.set(p.wallet_address, { display_name: p.display_name ?? null, avatar_url: p.avatar_url ?? null });
