@@ -36,7 +36,7 @@ export default function HowToPlay() {
   const [open, setOpen] = useState<number | null>(null);
 
   return (
-    <PageTransition className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pt-8 pb-24">
+    <PageTransition className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pt-8 pb-nav">
       <button
         onClick={() => navigate(-1)}
         className="mb-5 flex w-fit items-center gap-1 text-sm text-white/60 transition hover:text-white"

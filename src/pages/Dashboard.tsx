@@ -68,7 +68,7 @@ export default function Dashboard() {
   });
 
   return (
-    <PageTransition className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pt-8 pb-24">
+    <PageTransition className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pt-8 pb-nav">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">

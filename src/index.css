@@ -91,6 +91,12 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* Page bottom padding: clears the fixed BottomNav wherever it lands — the nav
+   rises by the phone's safe-area inset, so the clearance must grow with it. */
+.pb-nav {
+  padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+}
+
 /* ── Solana wallet-adapter button → themed ───────────────────────── */
 .wallet-adapter-button {
   background: linear-gradient(110deg, #22c55e 0%, #ffd166 100%) !important;

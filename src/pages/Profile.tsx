@@ -171,7 +171,7 @@ export default function Profile() {
   }
 
   return (
-    <PageTransition className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pt-8 pb-24">
+    <PageTransition className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pt-8 pb-nav">
       <h1 className="text-2xl font-black">Profile</h1>
 
       {pageError && (

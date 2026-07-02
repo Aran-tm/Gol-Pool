@@ -102,7 +102,7 @@ export default function MatchDetail() {
 
   if (loading) {
     return (
-      <PageTransition className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pt-8 pb-24">
+      <PageTransition className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pt-8 pb-nav">
         <Shimmer className="mb-5 h-4 w-20 rounded" />
         {/* Mirrors the score hero below so nothing jumps when data lands. */}
         <div className="glass rounded-3xl p-6">
@@ -126,7 +126,7 @@ export default function MatchDetail() {
 
   if (!match) {
     return (
-      <PageTransition className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pt-8 pb-24">
+      <PageTransition className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pt-8 pb-nav">
         <p className="mt-20 text-center text-white/40">{error || "Match not found."}</p>
       </PageTransition>
     );
@@ -137,7 +137,7 @@ export default function MatchDetail() {
   const stateLabel = GAME_STATE[match.game_state] ?? match.game_state;
 
   return (
-    <PageTransition className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pt-8 pb-24">
+    <PageTransition className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pt-8 pb-nav">
       {/* Back */}
       <button
         onClick={() => navigate(-1)}

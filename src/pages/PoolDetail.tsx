@@ -249,7 +249,7 @@ export default function PoolDetail() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pt-8 pb-24">
+    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pt-8 pb-nav">
       {/* Team reveal — fires once after creating/joining a pool */}
       <AnimatePresence>
         {reveal && myTeams.length > 0 && (
