@@ -9,7 +9,8 @@ import { memberPoints } from "../lib/scoring";
 import { fetchNfts, hasNftRpc, CURATED_NFTS, type NftItem } from "../lib/nft";
 import Flag from "../components/Flag";
 import Avatar from "../components/Avatar";
-import Skeleton from "../components/Skeleton";
+import Skeleton, { Shimmer } from "../components/Skeleton";
+import { Spinner } from "../components/ui";
 
 const short = (w: string) => `${w.slice(0, 4)}…${w.slice(-4)}`;
 
@@ -37,6 +38,7 @@ export default function Profile() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [stats, setStats] = useState({ pools: 0, points: 0, bestTeam: "", totalTeams: 0 });
   const [loaded, setLoaded] = useState(false);
+  const [profileLoaded, setProfileLoaded] = useState(false);
 
   // NFT avatar picker
   const [picking, setPicking] = useState(false);
@@ -48,12 +50,17 @@ export default function Profile() {
 
   // Load own profile (name + avatar).
   useEffect(() => {
-    if (!wallet) return;
-    getProfiles([wallet]).then((m) => {
-      const p = m.get(wallet);
-      if (p?.display_name) setDisplayName(p.display_name);
-      setAvatarUrl(p?.avatar_url ?? null);
-    });
+    if (!wallet) {
+      setProfileLoaded(true);
+      return;
+    }
+    getProfiles([wallet])
+      .then((m) => {
+        const p = m.get(wallet);
+        if (p?.display_name) setDisplayName(p.display_name);
+        setAvatarUrl(p?.avatar_url ?? null);
+      })
+      .finally(() => setProfileLoaded(true));
   }, [wallet]);
 
   async function openPicker() {
@@ -177,58 +184,71 @@ export default function Profile() {
       {/* Identity */}
       <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.04] p-5">
         <div className="flex items-center gap-4">
-          <button
-            onClick={openPicker}
-            className="relative shrink-0 transition hover:brightness-110"
-            title="Choose an NFT avatar"
-          >
-            <Avatar wallet={wallet} name={displayName} src={avatarUrl} size={56} className="!rounded-2xl" />
-            <span className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full border border-ink-900 bg-grass text-ink-950">
-              <Sparkles className="h-3 w-3" />
-            </span>
-          </button>
-          <div className="min-w-0 flex-1">
-            {editing ? (
-              <div className="flex items-center gap-2">
-                <input
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Display name"
-                  className="field flex-1 !py-2"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleSaveName();
-                    if (e.key === "Escape") setEditing(false);
-                  }}
-                />
-                <button
-                  onClick={handleSaveName}
-                  disabled={saving}
-                  className="btn-ghost !px-3 !py-2 text-xs"
-                >
-                  {saving ? "…" : "Save"}
-                </button>
+          {!profileLoaded ? (
+            <>
+              <Shimmer className="h-14 w-14 shrink-0 rounded-2xl" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <Shimmer className="h-5 w-32 rounded" />
+                <Shimmer className="h-3 w-24 rounded" />
               </div>
-            ) : (
-              <>
-                <div className="font-bold">
-                  {displayName || "Anonymous Player"}
+            </>
+          ) : (
+            <>
+              <button
+                onClick={openPicker}
+                className="relative shrink-0 transition hover:brightness-110"
+                title="Choose an NFT avatar"
+              >
+                {/* key on avatarUrl → a freshly uploaded photo re-shimmers until it loads */}
+                <Avatar key={avatarUrl ?? "gen"} wallet={wallet} name={displayName} src={avatarUrl} size={56} className="!rounded-2xl" />
+                <span className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full border border-ink-900 bg-grass text-ink-950">
+                  <Sparkles className="h-3 w-3" />
+                </span>
+              </button>
+              <div className="min-w-0 flex-1">
+                {editing ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="Display name"
+                      className="field flex-1 !py-2"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSaveName();
+                        if (e.key === "Escape") setEditing(false);
+                      }}
+                    />
+                    <button
+                      onClick={handleSaveName}
+                      disabled={saving}
+                      className="btn-ghost flex items-center !px-3 !py-2 text-xs"
+                    >
+                      {saving ? <Spinner className="h-3.5 w-3.5" /> : "Save"}
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="font-bold">
+                      {displayName || "Anonymous Player"}
+                    </div>
+                    <button
+                      onClick={() => {
+                        setDisplayName(displayName);
+                        setEditing(true);
+                      }}
+                      className="mt-0.5 text-xs text-white/40 transition hover:text-grass"
+                    >
+                      Set display name
+                    </button>
+                  </>
+                )}
+                <div className="mt-1 font-mono text-[10px] text-white/40">
+                  {short(wallet)}
                 </div>
-                <button
-                  onClick={() => {
-                    setDisplayName(displayName);
-                    setEditing(true);
-                  }}
-                  className="mt-0.5 text-xs text-white/40 transition hover:text-grass"
-                >
-                  Set display name
-                </button>
-              </>
-            )}
-            <div className="mt-1 font-mono text-[10px] text-white/40">
-              {short(wallet)}
-            </div>
-          </div>
+              </div>
+            </>
+          )}
         </div>
       </section>
 
@@ -322,7 +342,7 @@ export default function Profile() {
 
               <div className="mb-4 flex gap-2">
                 <label className="btn-ghost flex flex-1 items-center justify-center gap-2 !py-2 text-xs">
-                  <Upload className="h-3.5 w-3.5" />
+                  {uploading ? <Spinner className="h-3.5 w-3.5" /> : <Upload className="h-3.5 w-3.5" />}
                   {uploading ? "Uploading…" : "Upload photo"}
                   <input
                     type="file"

@@ -54,6 +54,28 @@ body {
     @apply w-full rounded-xl border border-white/10 bg-black/40 p-3.5 text-sm text-white
       outline-none transition placeholder:text-white/30 focus:border-grass/60 focus:bg-black/60;
   }
+  /* Shimmer loading placeholder — a highlight that sweeps across a subtle tint.
+     Wires up the `shimmer` keyframe from tailwind.config.js. */
+  .shimmer {
+    background-color: rgba(255, 255, 255, 0.05);
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.09) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    background-repeat: no-repeat;
+    @apply animate-shimmer;
+  }
+}
+
+/* Respect reduced-motion: keep the tint, drop the moving sweep. */
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    animation: none;
+    background-image: none;
+  }
 }
 
 .no-scrollbar::-webkit-scrollbar {

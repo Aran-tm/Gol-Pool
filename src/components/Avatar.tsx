@@ -2,6 +2,7 @@
 // (same wallet → same colors forever). Falls back to the gradient if the image fails.
 
 import { useState } from "react";
+import { Shimmer } from "./Skeleton";
 
 function hash(s: string): number {
   let h = 0;
@@ -31,16 +32,25 @@ interface Props {
 
 export default function Avatar({ wallet, name, size = 36, className, src }: Props) {
   const [broken, setBroken] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   if (src && !broken) {
     return (
-      <img
-        src={src}
-        alt={name ?? "avatar"}
-        onError={() => setBroken(true)}
-        className={`inline-block shrink-0 rounded-full object-cover ${className ?? ""}`}
+      <span
+        className={`relative inline-block shrink-0 overflow-hidden rounded-full ${className ?? ""}`}
         style={{ width: size, height: size }}
-      />
+      >
+        {!loaded && <Shimmer className="absolute inset-0 rounded-full" />}
+        <img
+          src={src}
+          alt={name ?? "avatar"}
+          // onLoad misses already-cached images, so also flip on mount if complete.
+          ref={(el) => { if (el?.complete) setLoaded(true); }}
+          onLoad={() => setLoaded(true)}
+          onError={() => setBroken(true)}
+          className="h-full w-full rounded-full object-cover"
+        />
+      </span>
     );
   }
 

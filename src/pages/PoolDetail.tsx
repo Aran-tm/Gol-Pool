@@ -23,7 +23,8 @@ import {
 } from "../lib/api";
 import { memberPoints, teamPoints, POINTS, type MatchRow } from "../lib/scoring";
 import { isLive, isFinished } from "../lib/txline";
-import { AnimatedNumber, LiveBadge, Label } from "../components/ui";
+import { AnimatedNumber, LiveBadge, Label, Spinner } from "../components/ui";
+import { Shimmer } from "../components/Skeleton";
 import TeamBadge from "../components/TeamBadge";
 import Flag from "../components/Flag";
 import MatchMinute from "../components/MatchMinute";
@@ -77,6 +78,8 @@ export default function PoolDetail() {
   const [matches, setMatches] = useState<MatchRow[]>([]);
   const [names, setNames] = useState<Map<string, ProfileInfo>>(new Map());
   const [feed, setFeed] = useState<GoalEvent[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [busy, setBusy] = useState<"lock" | "delete" | "">("");
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   // Transient per-wallet point bumps → floating "+N" + gold flash on the leaderboard.
@@ -90,15 +93,19 @@ export default function PoolDetail() {
 
   const loadStatic = useCallback(async () => {
     if (!poolId) return;
-    const [p, m, a] = await Promise.all([
-      getPool(poolId),
-      getMembers(poolId),
-      getAssignments(poolId),
-    ]);
-    setPool(p);
-    setMembers(m);
-    setAssignments(a);
-    setNames(await getProfiles(m.map((x) => x.wallet_address)));
+    try {
+      const [p, m, a] = await Promise.all([
+        getPool(poolId),
+        getMembers(poolId),
+        getAssignments(poolId),
+      ]);
+      setPool(p);
+      setMembers(m);
+      setAssignments(a);
+      setNames(await getProfiles(m.map((x) => x.wallet_address)));
+    } finally {
+      setLoaded(true); // clear the skeleton even if a fetch failed
+    }
   }, [poolId]);
   const loadMatches = useCallback(async () => setMatches(await getMatches()), []);
 
@@ -211,22 +218,27 @@ export default function PoolDetail() {
   const isOwner = !!pool && pool.owner_wallet === me;
 
   async function handleToggleLock() {
-    if (!pool) return;
+    if (!pool || busy) return;
+    setBusy("lock");
     try {
       await setPoolStatus(pool.id, me, pool.status === "open" ? "locked" : "open");
       await loadStatic();
     } catch (e) {
       console.warn("toggle lock:", e);
+    } finally {
+      setBusy("");
     }
   }
 
   async function handleDelete() {
-    if (!pool) return;
+    if (!pool || busy) return;
+    setBusy("delete");
     try {
       await deletePool(pool.id, me);
-      navigate("/pools", { replace: true });
+      navigate("/pools", { replace: true }); // unmounts — no need to clear busy
     } catch (e) {
       console.warn("delete pool:", e);
+      setBusy("");
     }
   }
 
@@ -274,37 +286,51 @@ export default function PoolDetail() {
         <ArrowLeft className="h-4 w-4" /> Pools
       </button>
 
-      {/* Cover banner */}
-      {pool && (
-        <div className="relative mb-4 h-24 overflow-hidden rounded-2xl border border-white/10">
-          <PoolCover poolId={pool.id} w={800} h={240} className="h-full w-full" />
-          <div className="absolute inset-0 bg-gradient-to-t from-ink-950/90 via-ink-950/30 to-transparent" />
-          {pool.status && pool.status !== "open" && (
-            <span className="absolute right-2 top-2 rounded-full border border-white/20 bg-ink-950/70 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white/70">
-              Locked
-            </span>
+      {!loaded ? (
+        <>
+          {/* Header skeleton — mirrors the cover, title, code and player count. */}
+          <Shimmer className="mb-4 h-24 rounded-2xl" />
+          <div className="flex items-start justify-between gap-3">
+            <Shimmer className="h-9 w-44 rounded-lg" />
+            <Shimmer className="h-9 w-24 shrink-0 rounded-xl" />
+          </div>
+          <Shimmer className="mt-2 h-4 w-20 rounded" />
+        </>
+      ) : (
+        <>
+          {/* Cover banner */}
+          {pool && (
+            <div className="relative mb-4 h-24 overflow-hidden rounded-2xl border border-white/10">
+              <PoolCover poolId={pool.id} w={800} h={240} className="h-full w-full" />
+              <div className="absolute inset-0 bg-gradient-to-t from-ink-950/90 via-ink-950/30 to-transparent" />
+              {pool.status && pool.status !== "open" && (
+                <span className="absolute right-2 top-2 rounded-full border border-white/20 bg-ink-950/70 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white/70">
+                  Locked
+                </span>
+              )}
+            </div>
           )}
-        </div>
-      )}
 
-      <div className="flex items-start justify-between gap-3">
-        <h1 className="text-3xl font-black leading-tight">{pool?.name ?? "…"}</h1>
-        <button
-          onClick={() => {
-            if (!pool) return;
-            navigator.clipboard.writeText(pool.join_code);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
-          }}
-          className="flex shrink-0 items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs font-mono"
-        >
-          {copied ? <Check className="h-3.5 w-3.5 text-grass" /> : <Copy className="h-3.5 w-3.5" />}
-          {pool?.join_code ?? "…"}
-        </button>
-      </div>
-      <div className="mt-1 text-sm text-white/40">
-        {members.length} player{members.length === 1 ? "" : "s"}
-      </div>
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="text-3xl font-black leading-tight">{pool?.name ?? "…"}</h1>
+            <button
+              onClick={() => {
+                if (!pool) return;
+                navigator.clipboard.writeText(pool.join_code);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              }}
+              className="flex shrink-0 items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs font-mono"
+            >
+              {copied ? <Check className="h-3.5 w-3.5 text-grass" /> : <Copy className="h-3.5 w-3.5" />}
+              {pool?.join_code ?? "…"}
+            </button>
+          </div>
+          <div className="mt-1 text-sm text-white/40">
+            {members.length} player{members.length === 1 ? "" : "s"}
+          </div>
+        </>
+      )}
 
       {/* Live matches banner */}
       {liveMatches.length > 0 && (
@@ -352,17 +378,31 @@ export default function PoolDetail() {
 
       {/* Tab content */}
       <div className="mt-5">
-        {tab === "leaderboard" && <LeaderboardTab rows={rows} me={me} names={names} bumps={bumps} liveMatches={liveMatches.length} />}
-        {tab === "feed" && <FeedTab feed={feed} teamOwner={teamOwner} names={names} />}
-        {tab === "my-teams" && <MyTeamsTab myTeams={myTeams} matches={matches} />}
-        {tab === "rules" && (
-          <RulesTab
-            pool={pool}
-            membersCount={members.length}
-            isOwner={isOwner}
-            onToggleLock={handleToggleLock}
-            onDelete={handleDelete}
-          />
+        {!loaded ? (
+          // ponytail: one list-shaped skeleton covers the initial static+feed load;
+          // the per-tab empty states stay honest once data lands.
+          <div className="space-y-2.5">
+            <Shimmer className="h-5 w-28 rounded" />
+            {[0, 1, 2, 3, 4].map((i) => (
+              <Shimmer key={i} className="h-14 rounded-2xl border border-white/10" />
+            ))}
+          </div>
+        ) : (
+          <>
+            {tab === "leaderboard" && <LeaderboardTab rows={rows} me={me} names={names} bumps={bumps} liveMatches={liveMatches.length} />}
+            {tab === "feed" && <FeedTab feed={feed} teamOwner={teamOwner} names={names} />}
+            {tab === "my-teams" && <MyTeamsTab myTeams={myTeams} matches={matches} />}
+            {tab === "rules" && (
+              <RulesTab
+                pool={pool}
+                membersCount={members.length}
+                isOwner={isOwner}
+                busy={busy}
+                onToggleLock={handleToggleLock}
+                onDelete={handleDelete}
+              />
+            )}
+          </>
         )}
       </div>
     </main>
@@ -612,12 +652,14 @@ function RulesTab({
   pool,
   membersCount,
   isOwner,
+  busy,
   onToggleLock,
   onDelete,
 }: {
   pool: Pool | null;
   membersCount: number;
   isOwner: boolean;
+  busy: "lock" | "delete" | "";
   onToggleLock: () => void;
   onDelete: () => void;
 }) {
@@ -679,10 +721,23 @@ function RulesTab({
           <div className="mt-3 space-y-2">
             <button
               onClick={onToggleLock}
-              className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-left text-sm font-semibold transition hover:border-white/30"
+              disabled={!!busy}
+              className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-left text-sm font-semibold transition hover:border-white/30 disabled:opacity-50"
             >
-              {locked ? <Unlock className="h-4 w-4 text-grass" /> : <Lock className="h-4 w-4 text-gold" />}
-              {locked ? "Reopen pool (allow new players)" : "Close pool (no new players)"}
+              {busy === "lock" ? (
+                <Spinner className="text-white/70" />
+              ) : locked ? (
+                <Unlock className="h-4 w-4 text-grass" />
+              ) : (
+                <Lock className="h-4 w-4 text-gold" />
+              )}
+              {busy === "lock"
+                ? locked
+                  ? "Reopening…"
+                  : "Closing…"
+                : locked
+                  ? "Reopen pool (allow new players)"
+                  : "Close pool (no new players)"}
             </button>
 
             {confirming ? (
@@ -690,10 +745,24 @@ function RulesTab({
                 <p className="text-sm font-semibold text-red-200">Delete this pool for everyone?</p>
                 <p className="mt-0.5 text-xs text-white/50">This can't be undone.</p>
                 <div className="mt-3 flex gap-2">
-                  <button onClick={onDelete} className="flex-1 rounded-xl bg-red-500 py-2 text-sm font-bold text-white transition hover:brightness-110">
-                    Yes, delete
+                  <button
+                    onClick={onDelete}
+                    disabled={busy === "delete"}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-500 py-2 text-sm font-bold text-white transition hover:brightness-110 disabled:opacity-60"
+                  >
+                    {busy === "delete" ? (
+                      <>
+                        <Spinner /> Deleting…
+                      </>
+                    ) : (
+                      "Yes, delete"
+                    )}
                   </button>
-                  <button onClick={() => setConfirming(false)} className="flex-1 rounded-xl border border-white/15 bg-white/5 py-2 text-sm font-semibold transition hover:bg-white/10">
+                  <button
+                    onClick={() => setConfirming(false)}
+                    disabled={busy === "delete"}
+                    className="flex-1 rounded-xl border border-white/15 bg-white/5 py-2 text-sm font-semibold transition hover:bg-white/10 disabled:opacity-40"
+                  >
                     Cancel
                   </button>
                 </div>

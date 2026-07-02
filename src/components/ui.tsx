@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
+import { Loader2 } from "lucide-react";
 import { cn } from "../lib/cn";
 
 /** A number that smoothly counts to its new value when `value` changes. */
@@ -44,4 +45,9 @@ export function Label({ children }: { children: React.ReactNode }) {
       {children}
     </span>
   );
+}
+
+/** Inline spinner for buttons/actions in flight. Size & color via className. */
+export function Spinner({ className }: { className?: string }) {
+  return <Loader2 className={cn("h-4 w-4 animate-spin", className)} aria-hidden />;
 }

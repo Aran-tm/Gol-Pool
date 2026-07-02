@@ -6,7 +6,7 @@ import { Trophy, ChevronRight, Plus, LogIn } from "lucide-react";
 import PageTransition from "../components/PageTransition";
 import MatchCard from "../components/MatchCard";
 import EmptyState from "../components/EmptyState";
-import Skeleton from "../components/Skeleton";
+import Skeleton, { Shimmer } from "../components/Skeleton";
 import PoolCover from "../components/PoolCover";
 import { LiveBadge } from "../components/ui";
 import { getMyPools, getMatches, subscribeMatches, getPoolMemberCount, type Pool } from "../lib/api";
@@ -85,7 +85,13 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {liveMatches.length > 0 ? (
+        {!loaded ? (
+          <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
+            {[0, 1, 2].map((i) => (
+              <Shimmer key={i} className="h-9 w-40 shrink-0 rounded-xl" />
+            ))}
+          </div>
+        ) : liveMatches.length > 0 ? (
           <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
             {liveMatches.map((m) => (
               <MatchCard key={m.fixture_id} match={m} compact />

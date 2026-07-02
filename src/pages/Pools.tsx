@@ -4,7 +4,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { motion } from "framer-motion";
 import { Plus, LogIn, ChevronRight, Trophy, Users } from "lucide-react";
 import { createPool, joinPool, getMyPools, getPoolMemberCount, type Pool } from "../lib/api";
-import { Label } from "../components/ui";
+import { Label, Spinner } from "../components/ui";
 import EmptyState from "../components/EmptyState";
 import Skeleton from "../components/Skeleton";
 import PoolCover from "../components/PoolCover";
@@ -23,7 +23,7 @@ export default function Pools() {
   const [pools, setPools] = useState<PoolCard[]>([]);
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"create" | "join" | "">("");
   const [error, setError] = useState("");
   const [loaded, setLoaded] = useState(false);
 
@@ -53,7 +53,7 @@ export default function Pools() {
 
   async function handleCreate() {
     if (!name.trim() || !wallet) return;
-    setBusy(true);
+    setBusy("create");
     setError("");
     try {
       const p = await createPool(name.trim(), wallet);
@@ -61,12 +61,12 @@ export default function Pools() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setBusy(false);
+      setBusy("");
     }
   }
   async function handleJoin() {
     if (!code.trim() || !wallet) return;
-    setBusy(true);
+    setBusy("join");
     setError("");
     try {
       const p = await joinPool(code.trim(), wallet);
@@ -74,7 +74,7 @@ export default function Pools() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setBusy(false);
+      setBusy("");
     }
   }
 
@@ -112,10 +112,16 @@ export default function Pools() {
         />
         <button
           onClick={handleCreate}
-          disabled={busy || !name.trim()}
+          disabled={!!busy || !name.trim()}
           className="btn-primary mt-3 w-full"
         >
-          {busy ? "Creating…" : "Create & get my teams"}
+          {busy === "create" ? (
+            <span className="inline-flex items-center justify-center gap-2">
+              <Spinner /> Creating…
+            </span>
+          ) : (
+            "Create & get my teams"
+          )}
         </button>
       </motion.div>
 
@@ -142,8 +148,14 @@ export default function Pools() {
               if (e.key === "Enter") handleJoin();
             }}
           />
-          <button onClick={handleJoin} disabled={busy || !code.trim()} className="btn-ghost px-5">
-            Join
+          <button onClick={handleJoin} disabled={!!busy || !code.trim()} className="btn-ghost px-5">
+            {busy === "join" ? (
+              <span className="inline-flex items-center gap-2">
+                <Spinner /> Joining…
+              </span>
+            ) : (
+              "Join"
+            )}
           </button>
         </div>
       </motion.div>

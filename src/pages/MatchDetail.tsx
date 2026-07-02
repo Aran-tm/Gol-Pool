@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Clock } from "lucide-react";
 import PageTransition from "../components/PageTransition";
 import { LiveBadge } from "../components/ui";
+import { Shimmer } from "../components/Skeleton";
 import MatchMinute from "../components/MatchMinute";
 import { supabase } from "../lib/supabase";
 import { getMatches } from "../lib/api";
@@ -65,9 +66,22 @@ export default function MatchDetail() {
   if (loading) {
     return (
       <PageTransition className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pt-8 pb-24">
-        <div className="glass mt-20 flex flex-col items-center gap-4 rounded-3xl p-10">
-          <div className="h-4 w-32 animate-pulse rounded bg-white/10" />
-          <div className="h-8 w-48 animate-pulse rounded bg-white/10" />
+        <Shimmer className="mb-5 h-4 w-20 rounded" />
+        {/* Mirrors the score hero below so nothing jumps when data lands. */}
+        <div className="glass rounded-3xl p-6">
+          <Shimmer className="mx-auto h-5 w-16 rounded-full" />
+          <div className="mt-3 flex items-center justify-center gap-6">
+            <div className="flex flex-col items-center gap-2">
+              <Shimmer className="h-10 w-10 rounded-full" />
+              <Shimmer className="h-4 w-16 rounded" />
+            </div>
+            <Shimmer className="h-12 w-20 rounded-xl" />
+            <div className="flex flex-col items-center gap-2">
+              <Shimmer className="h-10 w-10 rounded-full" />
+              <Shimmer className="h-4 w-16 rounded" />
+            </div>
+          </div>
+          <Shimmer className="mx-auto mt-3 h-3 w-24 rounded" />
         </div>
       </PageTransition>
     );
