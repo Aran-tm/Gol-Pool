@@ -12,7 +12,7 @@ import PageTransition from "../components/PageTransition";
 
 interface PoolCard {
   pool: Pool;
-  memberCount: number;
+  memberCount: number | null; // null = count failed to load
 }
 
 export default function Pools() {
@@ -33,10 +33,10 @@ export default function Pools() {
       const p = await getMyPools(wallet);
       const enriched = await Promise.all(
         p.map(async (pool) => {
-          let memberCount = 0;
+          let memberCount: number | null = null;
           try {
             memberCount = await getPoolMemberCount(pool.id);
-          } catch { /* ignore */ }
+          } catch { /* shown as "?" below */ }
           return { pool, memberCount };
         }),
       );
@@ -189,7 +189,7 @@ export default function Pools() {
                   <span>·</span>
                   <span className="flex items-center gap-1">
                     <Users className="h-3 w-3" />
-                    {memberCount}
+                    {memberCount ?? "?"}
                   </span>
                 </div>
               </div>

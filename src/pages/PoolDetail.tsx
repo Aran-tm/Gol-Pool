@@ -104,6 +104,9 @@ export default function PoolDetail() {
       setMembers(m);
       setAssignments(a);
       setNames(await getProfiles(m.map((x) => x.wallet_address)));
+      setError("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoaded(true); // clear the skeleton even if a fetch failed
     }
@@ -221,11 +224,12 @@ export default function PoolDetail() {
   async function handleToggleLock() {
     if (!pool || busy) return;
     setBusy("lock");
+    setError("");
     try {
       await setPoolStatus(pool.id, me, pool.status === "open" ? "locked" : "open");
       await loadStatic();
     } catch (e) {
-      console.warn("toggle lock:", e);
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy("");
     }
@@ -234,11 +238,12 @@ export default function PoolDetail() {
   async function handleDelete() {
     if (!pool || busy) return;
     setBusy("delete");
+    setError("");
     try {
       await deletePool(pool.id, me);
       navigate("/pools", { replace: true }); // unmounts — no need to clear busy
     } catch (e) {
-      console.warn("delete pool:", e);
+      setError(e instanceof Error ? e.message : String(e));
       setBusy("");
     }
   }
@@ -331,6 +336,12 @@ export default function PoolDetail() {
             {members.length} player{members.length === 1 ? "" : "s"}
           </div>
         </>
+      )}
+
+      {error && (
+        <p className="mt-4 rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
+          {error}
+        </p>
       )}
 
       {/* Live matches banner */}

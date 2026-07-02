@@ -39,6 +39,7 @@ export default function Profile() {
   const [stats, setStats] = useState({ pools: 0, points: 0, bestTeam: "", totalTeams: 0 });
   const [loaded, setLoaded] = useState(false);
   const [profileLoaded, setProfileLoaded] = useState(false);
+  const [pageError, setPageError] = useState("");
 
   // Avatar picker
   const [picking, setPicking] = useState(false);
@@ -57,6 +58,7 @@ export default function Profile() {
         if (p?.display_name) setDisplayName(p.display_name);
         setAvatarUrl(p?.avatar_url ?? null);
       })
+      .catch((e) => setPageError(e instanceof Error ? e.message : String(e)))
       .finally(() => setProfileLoaded(true));
   }, [wallet]);
 
@@ -65,11 +67,15 @@ export default function Profile() {
   }
 
   async function chooseAvatar(url: string | null) {
+    const previous = avatarUrl;
     setAvatarUrl(url);
     setPicking(false);
     try {
       await updateAvatar(wallet, url);
-    } catch { /* ignore */ }
+    } catch (e) {
+      setAvatarUrl(previous); // revert the optimistic change
+      setPageError(e instanceof Error ? e.message : String(e));
+    }
   }
 
   async function handleUpload(e: ChangeEvent<HTMLInputElement>) {
@@ -136,7 +142,9 @@ export default function Profile() {
         bestTeam,
         totalTeams: myTeamIds.length,
       });
-    } catch { /* ignore */ } finally {
+    } catch (e) {
+      setPageError(e instanceof Error ? e.message : String(e));
+    } finally {
       setLoaded(true);
     }
   }, [wallet]);
@@ -151,8 +159,8 @@ export default function Profile() {
     try {
       await updateDisplayName(wallet, displayName.trim());
       setEditing(false);
-    } catch {
-      // ignore
+    } catch (e) {
+      setPageError(e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
     }
@@ -166,6 +174,12 @@ export default function Profile() {
   return (
     <PageTransition className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pt-8 pb-24">
       <h1 className="text-2xl font-black">Profile</h1>
+
+      {pageError && (
+        <p className="mt-4 rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
+          {pageError}
+        </p>
+      )}
 
       {/* Identity */}
       <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.04] p-5">
