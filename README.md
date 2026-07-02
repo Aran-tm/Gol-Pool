@@ -122,8 +122,8 @@ Per assigned team, accruing live:
 - `GET /api/scores/snapshot/{fixtureId}` — current/historical score
 - `GET /api/scores/stream` — real-time SSE (next: wire into worker)
 
-## 💰 Monetization
-On-chain entry-fee pools (winner takes pot, platform rake) · premium pools (more teams, custom scoring) · sponsored/branded pools · cosmetics.
+## 💰 Monetization (roadmap — not built yet)
+Today every pool is free; wallets are used for identity/sign-up only, no funds ever move. `pools.entry_fee` already exists in the schema (defaults to `0`) as the seam for what's next: on-chain entry-fee pools where the highest score at tournament end takes the pot (winner-takes-all, platform rake), plus premium pools (more teams, custom scoring), sponsored/branded pools, cosmetics. The app's own FAQ (`HowToPlay.tsx`) tells users this directly: *"Is there an entry fee? Not yet."*
 
 ---
 
