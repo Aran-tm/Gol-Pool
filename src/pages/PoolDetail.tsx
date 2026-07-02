@@ -68,7 +68,7 @@ export default function PoolDetail() {
   const { poolId } = useParams<{ poolId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { publicKey } = useWallet();
+  const { publicKey, signMessage } = useWallet();
   const me = publicKey?.toBase58() ?? "";
 
   const [tab, setTab] = useState<Tab>("leaderboard");
@@ -226,7 +226,7 @@ export default function PoolDetail() {
     setBusy("lock");
     setError("");
     try {
-      await setPoolStatus(pool.id, me, pool.status === "open" ? "locked" : "open");
+      await setPoolStatus(pool.id, me, signMessage, pool.status === "open" ? "locked" : "open");
       await loadStatic();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -240,7 +240,7 @@ export default function PoolDetail() {
     setBusy("delete");
     setError("");
     try {
-      await deletePool(pool.id, me);
+      await deletePool(pool.id, me, signMessage);
       navigate("/pools", { replace: true }); // unmounts — no need to clear busy
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

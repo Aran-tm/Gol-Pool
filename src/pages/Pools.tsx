@@ -16,7 +16,7 @@ interface PoolCard {
 }
 
 export default function Pools() {
-  const { publicKey } = useWallet();
+  const { publicKey, signMessage } = useWallet();
   const wallet = publicKey?.toBase58() ?? "";
   const navigate = useNavigate();
 
@@ -56,7 +56,7 @@ export default function Pools() {
     setBusy("create");
     setError("");
     try {
-      const p = await createPool(name.trim(), wallet);
+      const p = await createPool(name.trim(), wallet, signMessage);
       navigate(`/pools/${p.id}`, { state: { reveal: true } });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -69,7 +69,7 @@ export default function Pools() {
     setBusy("join");
     setError("");
     try {
-      const p = await joinPool(code.trim(), wallet);
+      const p = await joinPool(code.trim(), wallet, signMessage);
       navigate(`/pools/${p.id}`, { state: { reveal: true } });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

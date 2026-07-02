@@ -15,7 +15,7 @@ import { Spinner } from "../components/ui";
 const short = (w: string) => `${w.slice(0, 4)}…${w.slice(-4)}`;
 
 export default function Profile() {
-  const { publicKey, disconnect, select } = useWallet();
+  const { publicKey, disconnect, select, signMessage } = useWallet();
   const wallet = publicKey?.toBase58() ?? "";
   const navigate = useNavigate();
 
@@ -71,7 +71,7 @@ export default function Profile() {
     setAvatarUrl(url);
     setPicking(false);
     try {
-      await updateAvatar(wallet, url);
+      await updateAvatar(wallet, signMessage, url);
     } catch (e) {
       setAvatarUrl(previous); // revert the optimistic change
       setPageError(e instanceof Error ? e.message : String(e));
@@ -93,7 +93,7 @@ export default function Profile() {
     setUploadError("");
     setUploading(true);
     try {
-      const url = await uploadAvatarImage(wallet, file);
+      const url = await uploadAvatarImage(wallet, signMessage, file);
       await chooseAvatar(url);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Upload failed.");
@@ -157,7 +157,7 @@ export default function Profile() {
     if (!displayName.trim() || !wallet) return;
     setSaving(true);
     try {
-      await updateDisplayName(wallet, displayName.trim());
+      await updateDisplayName(wallet, signMessage, displayName.trim());
       setEditing(false);
     } catch (e) {
       setPageError(e instanceof Error ? e.message : String(e));

@@ -36,73 +36,17 @@ export async function getMatches(): Promise<MatchRow[]> {
   return (data ?? []) as MatchRow[];
 }
 
-/** Assign `count` random not-yet-taken teams to a member in a pool. */
-async function assignTeams(poolId: string, wallet: string, count = TEAMS_PER_MEMBER) {
-  const matches = await getMatches();
-  const all = distinctTeams(matches);
-
-  const { data: taken, error: takenError } = await supabase
-    .from("team_assignments")
-    .select("team_id")
-    .eq("pool_id", poolId);
-  if (takenError) throw takenError; // otherwise a failed read here silently double-assigns taken teams
-  const takenIds = new Set((taken ?? []).map((t) => t.team_id));
-
-  const available = all.filter((t) => !takenIds.has(t.id));
-  // shuffle
-  for (let i = available.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [available[i], available[j]] = [available[j], available[i]];
-  }
-  const picked = available.slice(0, count);
-  if (picked.length === 0) return;
-
-  await supabase.from("team_assignments").insert(
-    picked.map((t) => ({ pool_id: poolId, wallet_address: wallet, team_id: t.id, team_name: t.name })),
-  );
+// Creating/joining a pool writes to profiles/pools/pool_members/team_assignments, so it
+// runs server-side in the wallet-write Edge Function (verified by wallet signature) rather
+// than directly from the browser — see supabase/functions/wallet-write.
+export async function createPool(name: string, wallet: string, signMessage: SignMessage): Promise<Pool> {
+  const { pool } = await walletWrite<{ pool: Pool }>(wallet, signMessage, "create_pool", { name });
+  return pool;
 }
 
-export async function createPool(name: string, wallet: string): Promise<Pool> {
-  await ensureProfile(wallet);
-  const join_code = randomCode();
-  const { data, error } = await supabase
-    .from("pools")
-    .insert({ name, owner_wallet: wallet, join_code })
-    .select()
-    .single();
-  if (error) throw error;
-
-  await supabase.from("pool_members").insert({ pool_id: data.id, wallet_address: wallet });
-  await assignTeams(data.id, wallet);
-  return data as Pool;
-}
-
-export async function joinPool(joinCode: string, wallet: string): Promise<Pool> {
-  await ensureProfile(wallet);
-  const { data: pool, error } = await supabase
-    .from("pools")
-    .select("*")
-    .eq("join_code", joinCode.toUpperCase().trim())
-    .single();
-  if (error || !pool) throw new Error("Pool not found for that code.");
-  if (pool.status && pool.status !== "open") throw new Error("This pool is closed to new players.");
-
-  const { data: existing } = await supabase
-    .from("pool_members")
-    .select("wallet_address")
-    .eq("pool_id", pool.id)
-    .eq("wallet_address", wallet)
-    .maybeSingle();
-
-  if (!existing) {
-    const memberCount = await getPoolMemberCount(pool.id);
-    if (memberCount >= MAX_PLAYERS_PER_POOL) {
-      throw new Error(`This pool is full (max ${MAX_PLAYERS_PER_POOL} players).`);
-    }
-    await supabase.from("pool_members").insert({ pool_id: pool.id, wallet_address: wallet });
-    await assignTeams(pool.id, wallet);
-  }
-  return pool as Pool;
+export async function joinPool(joinCode: string, wallet: string, signMessage: SignMessage): Promise<Pool> {
+  const { pool } = await walletWrite<{ pool: Pool }>(wallet, signMessage, "join_pool", { join_code: joinCode });
+  return pool;
 }
 
 export async function getMyPools(wallet: string): Promise<Pool[]> {
@@ -124,24 +68,14 @@ export async function getPool(poolId: string): Promise<Pool | null> {
   return (data as Pool) ?? null;
 }
 
-/** Owner-only: set pool status ('open' | 'locked'). */
-export async function setPoolStatus(poolId: string, wallet: string, status: string): Promise<void> {
-  const { error } = await supabase
-    .from("pools")
-    .update({ status })
-    .eq("id", poolId)
-    .eq("owner_wallet", wallet); // RLS-lite: only the owner row matches
-  if (error) throw error;
+/** Owner-only: set pool status ('open' | 'locked'). Ownership is checked server-side. */
+export async function setPoolStatus(poolId: string, wallet: string, signMessage: SignMessage, status: string): Promise<void> {
+  await walletWrite(wallet, signMessage, "set_pool_status", { pool_id: poolId, status });
 }
 
-/** Owner-only: delete a pool (cascades to members, assignments, score_log). */
-export async function deletePool(poolId: string, wallet: string): Promise<void> {
-  const { error } = await supabase
-    .from("pools")
-    .delete()
-    .eq("id", poolId)
-    .eq("owner_wallet", wallet);
-  if (error) throw error;
+/** Owner-only: delete a pool (cascades to members, assignments, score_log). Ownership is checked server-side. */
+export async function deletePool(poolId: string, wallet: string, signMessage: SignMessage): Promise<void> {
+  await walletWrite(wallet, signMessage, "delete_pool", { pool_id: poolId });
 }
 
 export async function getMembers(poolId: string): Promise<Member[]> {
@@ -186,25 +120,23 @@ export async function getProfiles(wallets: string[]): Promise<Map<string, Profil
   return map;
 }
 
-/** Update (or clear) a user's display name. */
-export async function updateDisplayName(wallet: string, name: string): Promise<void> {
-  await supabase
-    .from("profiles")
-    .upsert({ wallet_address: wallet, display_name: name }, { onConflict: "wallet_address" });
+/** Update (or clear) a user's display name. Only the signing wallet's own row can change. */
+export async function updateDisplayName(wallet: string, signMessage: SignMessage, name: string): Promise<void> {
+  await walletWrite(wallet, signMessage, "update_display_name", { display_name: name });
 }
 
-/** Set (or clear) a user's avatar image URL (e.g. a chosen NFT). */
-export async function updateAvatar(wallet: string, url: string | null): Promise<void> {
-  await supabase
-    .from("profiles")
-    .upsert({ wallet_address: wallet, avatar_url: url }, { onConflict: "wallet_address" });
+/** Set (or clear) a user's avatar image URL (e.g. a chosen NFT). Only the signing wallet's own row can change. */
+export async function updateAvatar(wallet: string, signMessage: SignMessage, url: string | null): Promise<void> {
+  await walletWrite(wallet, signMessage, "update_avatar", { avatar_url: url });
 }
 
-/** Upload a custom profile picture to the `avatars` bucket and return its public URL. */
-export async function uploadAvatarImage(wallet: string, file: File): Promise<string> {
+/** Upload a custom profile picture to the `avatars` bucket and return its public URL.
+ * A signed upload URL is minted server-side (after verifying the wallet's signature) so the
+ * browser never gets blanket write access to the bucket — it can only write to its own path. */
+export async function uploadAvatarImage(wallet: string, signMessage: SignMessage, file: File): Promise<string> {
   const ext = file.name.split(".").pop() || "jpg";
-  const path = `${wallet}/avatar.${ext}`; // fixed path per wallet: re-upload overwrites (edit = upload again)
-  const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+  const { path, token } = await walletWrite<{ path: string; token: string }>(wallet, signMessage, "get_avatar_upload_url", { ext });
+  const { error } = await supabase.storage.from("avatars").uploadToSignedUrl(path, token, file);
   if (error) throw error;
   return supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
 }

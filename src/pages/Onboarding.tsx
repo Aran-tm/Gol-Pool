@@ -35,14 +35,14 @@ export default function Onboarding() {
   const [[step, dir], setStep] = useState<[number, number]>([0, 0]);
   const [name, setName] = useState("");
   const navigate = useNavigate();
-  const { publicKey } = useWallet();
+  const { publicKey, signMessage } = useWallet();
   const wallet = publicKey?.toBase58() ?? "";
 
   async function finish() {
     const trimmed = name.trim();
     if (trimmed && wallet) {
       try {
-        await updateDisplayName(wallet, trimmed);
+        await updateDisplayName(wallet, signMessage, trimmed);
       } catch { /* ignore */ }
     }
     localStorage.setItem("golpool_onboarded", "true");
