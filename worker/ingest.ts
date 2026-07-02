@@ -7,7 +7,7 @@ dotenv.config({ path: ".env.local" });
 
 import { createClient } from "@supabase/supabase-js";
 import { NETWORKS, type Network } from "../src/lib/txlineConfig.ts";
-import { isFinished, type Fixture, type ScoresEvent } from "../src/lib/txline.ts";
+import { foldSnapshot, isFinished, type Fixture, type ScoresEvent } from "../src/lib/txline.ts";
 
 const network = (process.env.TXLINE_NETWORK as Network) || "mainnet";
 const apiToken = process.env.TXLINE_API_TOKEN;
@@ -91,26 +91,25 @@ async function pollScores(jwt: string) {
       failed++;
       continue;
     }
-    const last = snaps?.[snaps.length - 1];
-    if (!last) {
+    if (!snaps?.length) {
       skipped++;
       continue;
     }
 
-    const gsRaw = Number(last.gameState ?? m.game_state);
-    const gs = Number.isNaN(gsRaw) ? m.game_state : gsRaw; // never persist NaN
-    const p1 = last.scoreSoccer?.Participant1?.Total;
-    const p2 = last.scoreSoccer?.Participant2?.Total;
-    const hg = p1?.Goals ?? 0;
-    const ag = p2?.Goals ?? 0;
+    const { gs, score, ts } = foldSnapshot(snaps, m.game_state);
+    const p1 = score?.Participant1?.Total;
+    const p2 = score?.Participant2?.Total;
+    // No score-bearing event yet → keep existing numbers, never regress to 0.
+    const hg = score ? p1?.Goals ?? 0 : m.home_goals ?? 0;
+    const ag = score ? p2?.Goals ?? 0 : m.away_goals ?? 0;
     if (gs === 2 || gs === 4) live++;
 
     // New goals since last poll → append events (idempotent via unique seq).
     const events: Record<string, unknown>[] = [];
     for (let n = (m.home_goals ?? 0) + 1; n <= hg; n++)
-      events.push({ fixture_id: m.fixture_id, team_id: m.home_team_id, type: "goal", seq: n, minute: last.ts ?? null, payload: { team: m.home_team } });
+      events.push({ fixture_id: m.fixture_id, team_id: m.home_team_id, type: "goal", seq: n, minute: ts, payload: { team: m.home_team } });
     for (let n = (m.away_goals ?? 0) + 1; n <= ag; n++)
-      events.push({ fixture_id: m.fixture_id, team_id: m.away_team_id, type: "goal", seq: n, minute: last.ts ?? null, payload: { team: m.away_team } });
+      events.push({ fixture_id: m.fixture_id, team_id: m.away_team_id, type: "goal", seq: n, minute: ts, payload: { team: m.away_team } });
     if (events.length)
       await supabase.from("match_events").upsert(events, {
         onConflict: "fixture_id,seq,type,team_id",
@@ -118,9 +117,12 @@ async function pollScores(jwt: string) {
       });
 
     // Match stats from the aggregate Total period (TxLINE gives corners + cards, no shots).
-    const hc = p1?.Corners ?? 0, ac = p2?.Corners ?? 0;
-    const hy = p1?.YellowCards ?? 0, ay = p2?.YellowCards ?? 0;
-    const hr = p1?.RedCards ?? 0, ar = p2?.RedCards ?? 0;
+    const hc = score ? p1?.Corners ?? 0 : m.home_corners ?? 0;
+    const ac = score ? p2?.Corners ?? 0 : m.away_corners ?? 0;
+    const hy = score ? p1?.YellowCards ?? 0 : m.home_yellows ?? 0;
+    const ay = score ? p2?.YellowCards ?? 0 : m.away_yellows ?? 0;
+    const hr = score ? p1?.RedCards ?? 0 : m.home_reds ?? 0;
+    const ar = score ? p2?.RedCards ?? 0 : m.away_reds ?? 0;
 
     const statsChanged =
       hc !== m.home_corners || ac !== m.away_corners ||

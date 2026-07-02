@@ -67,14 +67,22 @@ export const GAME_STATE: Record<number, string> = {
   3: "Halftime",
   4: "Second Half",
   5: "Finished",
+  6: "Extra Time",
+  7: "Extra Time",
+  8: "Extra Time",
+  9: "Extra Time",
   10: "Ended (ET)",
+  11: "Penalties",
+  12: "Penalties",
   13: "Ended (Pens)",
   15: "Abandoned",
   16: "Cancelled",
   19: "Postponed",
 };
 
-export const isLive = (state: number) => state === 2 || state === 4;
+// 6–9 = extra-time phases, 11–12 = penalty shootout (seen in live knockout feeds).
+export const isLive = (state: number) =>
+  state === 2 || state === 4 || (state >= 6 && state <= 12 && state !== 10);
 export const isFinished = (state: number) =>
   state === 5 || state === 10 || state === 13;
 
@@ -82,6 +90,45 @@ export const isFinished = (state: number) =>
  *  TxLINE fixtures that never got results (dropped from the feed) — hide them everywhere. */
 export const isStale = (kickoff: string | null, state: number, now = Date.now()) =>
   state === 1 && !!kickoff && new Date(kickoff).getTime() <= now;
+
+/** One event of a scores snapshot, in either feed schema:
+ *  live PascalCase (Seq/StatusId/Score/Ts) or replay camelCase (seq/gameState/scoreSoccer/ts). */
+export interface SnapshotEvent {
+  Seq?: number;
+  seq?: number;
+  StatusId?: number;
+  gameState?: string | number;
+  Score?: SoccerScore;
+  scoreSoccer?: SoccerScore;
+  Ts?: number;
+  ts?: number;
+}
+
+/**
+ * Fold an UNORDERED scores snapshot into the newest game state + newest score.
+ * Events are sparse: the final-whistle event (StatusId 5) carries no Score, and
+ * the newest score-bearing event may not carry the newest status — so track each
+ * independently while walking events in Seq order.
+ */
+export function foldSnapshot(
+  snaps: SnapshotEvent[] | null | undefined,
+  fallbackState: number,
+): { gs: number; score: SoccerScore | null; ts: number | null } {
+  let gs = fallbackState;
+  let score: SoccerScore | null = null;
+  let ts: number | null = null;
+  const sorted = [...(snaps ?? [])].sort((a, b) => (a.Seq ?? a.seq ?? 0) - (b.Seq ?? b.seq ?? 0));
+  for (const e of sorted) {
+    const st = e.StatusId ?? Number(e.gameState);
+    if (st != null && !Number.isNaN(st)) gs = st;
+    const sc = e.Score ?? e.scoreSoccer;
+    if (sc && (Object.keys(sc.Participant1 ?? {}).length || Object.keys(sc.Participant2 ?? {}).length)) {
+      score = sc;
+      ts = e.Ts ?? e.ts ?? ts;
+    }
+  }
+  return { gs, score, ts };
+}
 
 /**
  * Approximate live match minute for display, derived from kickoff + game state.
