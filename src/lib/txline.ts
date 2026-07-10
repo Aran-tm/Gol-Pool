@@ -78,13 +78,14 @@ export const GAME_STATE: Record<number, string> = {
   15: "Abandoned",
   16: "Cancelled",
   19: "Postponed",
+  100: "Finished", // game_finalised — terminal post-match event in the live feed
 };
 
 // 6–9 = extra-time phases, 11–12 = penalty shootout (seen in live knockout feeds).
 export const isLive = (state: number) =>
   state === 2 || state === 4 || (state >= 6 && state <= 12 && state !== 10);
 export const isFinished = (state: number) =>
-  state === 5 || state === 10 || state === 13;
+  state === 5 || state === 10 || state === 13 || state === 100;
 
 /** Stale = still "Not Started" but its kickoff is already in the past. These are old
  *  TxLINE fixtures that never got results (dropped from the feed) — hide them everywhere. */
@@ -102,7 +103,14 @@ export interface SnapshotEvent {
   scoreSoccer?: SoccerScore;
   Ts?: number;
   ts?: number;
+  Action?: string;
+  action?: string;
 }
+
+/** Retroactive corrections to past events: their StatusId reflects the moment being
+ *  corrected, not the current game state (e.g. a post-FT yellow-card amend carries the
+ *  in-play state and would drag a Finished match back to LIVE forever). */
+const RETRO_ACTIONS = new Set(["action_amend", "action_discarded"]);
 
 /**
  * Fold an UNORDERED scores snapshot into the newest game state + newest score.
@@ -120,7 +128,7 @@ export function foldSnapshot(
   const sorted = [...(snaps ?? [])].sort((a, b) => (a.Seq ?? a.seq ?? 0) - (b.Seq ?? b.seq ?? 0));
   for (const e of sorted) {
     const st = e.StatusId ?? Number(e.gameState);
-    if (st != null && !Number.isNaN(st)) gs = st;
+    if (st != null && !Number.isNaN(st) && !RETRO_ACTIONS.has(e.Action ?? e.action ?? "")) gs = st;
     const sc = e.Score ?? e.scoreSoccer;
     if (sc && (Object.keys(sc.Participant1 ?? {}).length || Object.keys(sc.Participant2 ?? {}).length)) {
       score = sc;

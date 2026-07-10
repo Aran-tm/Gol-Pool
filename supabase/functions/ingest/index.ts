@@ -16,19 +16,24 @@ const NETWORKS: Record<string, string> = {
 };
 const COMP = 72; // World Cup
 const HORIZON_MS = 3 * 60 * 60 * 1000;
-const isFinished = (s: number) => s === 5 || s === 10 || s === 13;
+const isFinished = (s: number) => s === 5 || s === 10 || s === 13 || s === 100; // 100 = game_finalised
 
 // Snapshot events arrive UNORDERED and sparse: the final-whistle event (StatusId 5)
 // carries no Score, and the newest score-bearing event may not carry the newest
 // status. Fold by Seq, keeping the newest StatusId and the newest non-empty Score.
 // Reads both feed schemas: live PascalCase (StatusId/Score/Seq/Ts) and the replay's
 // camelCase (gameState/scoreSoccer/seq/ts).
+// Amend/discard events are retroactive corrections — their StatusId reflects the moment
+// being corrected, not the current state (a post-FT card amend would drag a Finished
+// match back to LIVE forever). Never take game state from them.
+const RETRO_ACTIONS = new Set(["action_amend", "action_discarded"]);
+
 function foldSnapshot(snaps, fallbackState) {
   let gs = fallbackState, score = null, ts = null;
   const sorted = [...(snaps ?? [])].sort((a, b) => (a.Seq ?? a.seq ?? 0) - (b.Seq ?? b.seq ?? 0));
   for (const e of sorted) {
     const st = e.StatusId ?? Number(e.gameState);
-    if (st != null && !Number.isNaN(st)) gs = st;
+    if (st != null && !Number.isNaN(st) && !RETRO_ACTIONS.has(e.Action ?? e.action ?? "")) gs = st;
     const sc = e.Score ?? e.scoreSoccer;
     if (sc && (Object.keys(sc.Participant1 ?? {}).length || Object.keys(sc.Participant2 ?? {}).length)) {
       score = sc;
